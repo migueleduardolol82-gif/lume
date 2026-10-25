@@ -1,0 +1,41 @@
+{
+  "name": "lume-estudo",
+  "version": "1.8.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 5173",
+    "build": "next build",
+    "start": "next start --port 5173",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "test": "node scripts/regression.mjs regression",
+    "test:unit": "node scripts/regression.mjs unit",
+    "test:regression": "node scripts/regression.mjs regression",
+    "test:integration": "node scripts/regression.mjs integration",
+    "test:live-ai": "node scripts/regression.mjs live-ai",
+    "test:quality-ai": "node scripts/regression.mjs quality-ai"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@vercel/functions": "^3.10.1",
+    "lucide-react": "^1.31.0",
+    "next": "16.3.4",
+    "pg": "^8.23.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/pg": "^8.23.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "esbuild": "^0.25.12",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3"
+  }
+}

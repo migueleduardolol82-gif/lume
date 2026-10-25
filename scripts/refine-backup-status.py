@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('app/lume.tsx');s=p.read_text(encoding='utf-8-sig');start=s.index(' async function exportFullBackup()');end=s.index('\n async function importBackup',start);part=s[start:end];part=part.replace("throw Error(d.error||'Não foi possível exportar.');","throw new RequestError(d.error||'Não foi possível exportar.',r.status);");part=part.replace("catch(e){setError", "catch(e){setConnection(!navigator.onLine?'offline':e instanceof RequestError&&e.status===401?'auth':'error');setError");s=s[:start]+part+s[end:];p.write_text(s,encoding='utf-8')
+p=Path('app/globals.css');s=p.read_text(encoding='utf-8-sig').replace('.sync.offline i,.sync.error i','.sync.offline i,.sync.error i,.sync.auth i');p.write_text(s,encoding='utf-8')

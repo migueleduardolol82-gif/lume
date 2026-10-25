@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.vercel/
+.env*
+!.env.example
+*.tsbuildinfo
+.sites-runtime/
+.test-artifacts/
+ORIGEM-DA-COPIA.json
+COORDINACAO.md
+DESIGN-ESTUDO-GUIADO.md
+ALTERACOES-100MB.md
+github-upload-manifest.json
+*.png.tmp
