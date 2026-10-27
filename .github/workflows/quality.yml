@@ -33,3 +33,49 @@ jobs:
         run: npm test
       - name: Build de producao sem credenciais
         run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lume_test
+          POSTGRES_PASSWORD: lume_test_only
+          POSTGRES_DB: lume_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lume_test -d lume_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: TLS verificado para o PostgreSQL descartavel
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          mkdir -p .test-artifacts/pg-tls
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -keyout .test-artifacts/pg-tls/server.key -out .test-artifacts/pg-tls/server.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
+          docker cp .test-artifacts/pg-tls/server.key "$PG_CONTAINER:/tmp/lume-test.key"
+          docker cp .test-artifacts/pg-tls/server.crt "$PG_CONTAINER:/tmp/lume-test.crt"
+          docker exec --user root "$PG_CONTAINER" chown postgres:postgres /tmp/lume-test.key /tmp/lume-test.crt
+          docker exec --user root "$PG_CONTAINER" chmod 600 /tmp/lume-test.key
+          docker exec --user postgres "$PG_CONTAINER" sh -c 'printf "\nssl=on\nssl_cert_file=\047/tmp/lume-test.crt\047\nssl_key_file=\047/tmp/lume-test.key\047\n" >> "$PGDATA/postgresql.conf"'
+          docker restart "$PG_CONTAINER"
+          for attempt in $(seq 1 30); do
+            if docker exec "$PG_CONTAINER" pg_isready -U lume_test -d lume_test; then break; fi
+            sleep 1
+          done
+          printf 'DATABASE_URL=postgresql://lume_test:lume_test_only@localhost:5432/lume_test?sslmode=verify-full&sslrootcert=%s/.test-artifacts/pg-tls/server.crt\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Migracoes e integracao real sem IA
+        run: node scripts/ci-integration.mjs
