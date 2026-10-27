@@ -86,3 +86,16 @@ test('tutor reference snapshots reject unsupported kinds',()=>{
  const input={...fixture(),messages:[{deck_id:'deck-old',role:'assistant',content:'Resposta.',created:4400,references:[{id:'x',label:'Inválido',text:'Texto',kind:'execute_code'}]}]};
  assert.throws(()=>restore(input));
 });
+
+test('true/false backup preserves false, source and study progress under new IDs',()=>{
+ const input=fixture();input.decks[0].cards[0].front='Afirmação sintética';input.decks[0].cards[0].back='Falso';
+ Object.assign(input.decks[0].cards[0].details,{template:{type:'true_false',correct:false}});
+ const result=restore(input);
+ assert.deepEqual(result.cards[0].details,{...details,template:{type:'true_false',correct:false}});
+ assert.equal(result.cards[0].due,5000);assert.equal(result.cards[0].interval,3);assert.notEqual(result.cards[0].id,'card-old');
+});
+
+test('REG-TF-ANSWER-001: backup rejects a textual answer contradicting its boolean key',()=>{
+ const input=fixture();input.decks[0].cards[0].back='Verdadeiro';Object.assign(input.decks[0].cards[0].details,{template:{type:'true_false',correct:false}});
+ assert.throws(()=>restore(input));
+});

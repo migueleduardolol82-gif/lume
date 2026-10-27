@@ -27,3 +27,17 @@ Acesso ao projeto Vercel/deploy funciona pelo conector e navegador autenticado. 
 ## Pendências seguintes
 
 Cloze, múltipla seleção, ordenar, associar e imagens com propriedade validada no servidor; estudo guiado; Tutor lendo PDFs/imagens com citações; backup de binários; avaliação pedagógica em materiais longos e validação no iPhone; mapeamento dos fluxos restantes do Gizmo.
+
+## Verdadeiro/falso — incremento em desenvolvimento
+
+A branch codex/true-false libera somente qa e true_false. Os demais templates seguem bloqueados. O editor salva gabarito booleano; quiz avalia a alternativa escolhida e registra a revisão somente ao avançar. Backup e API rejeitam texto de resposta contraditório com o gabarito.
+
+Regressões: REG-TF-ANSWER-001 cobre backup com resposta inconsistente; REG-TF-STUDY-001 cobre baralho misto, acerto/erro, gravação só ao avançar e falha de gravação sem avanço. Testes de componentes cobrem gabarito false no editor e as quatro combinações entre gabarito e resposta.
+
+Teste integrado adicional: tests/true-false-api.mjs, incluído em npm.cmd run test:integration. Usa exclusivamente fixtures sintéticas na identidade Prévia local e valida persistência, preservação de progresso, conflitos, bloqueio de tipos incompletos e backup/restauração.
+
+Esta etapa não altera o modelo/prompt de geração nem chama IA real. A versão pública permanece a anterior até validação integrada e publicação explícita.
+
+Validação em 27/10/2026: npm.cmd test passou (115 testes de lógica e 29 de componentes); npm.cmd run build passou com TypeScript. A prévia sintética no navegador confirmou criação com gabarito Falso e conferência correta, sem banco ou IA.
+
+A integração real ainda está pendente: o servidor iniciado nesta cópia respondeu 500 no primeiro GET /api/lume, com AggregateError no acesso aos estudos. O teste interrompeu antes de criar fixtures. Não considerar persistência real validada nem publicar esta branch até resolver o acesso e executar npm.cmd run test:integration.

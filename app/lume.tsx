@@ -7,7 +7,7 @@ import GenerateCards from './generate-cards';
 import ChoiceQuiz from './choice-quiz';
 import DeckWorkspace from './deck-workspace';
 import CardEditor from './card-editor';
-import {RELEASE_FEATURES} from '../lib/release-features';
+import {isReleasedCardType} from '../lib/release-features';
 import TemplateQuiz from './template-quiz';
 import type {CardDetails,MaterialNote,TutorReference} from '../lib/content';
 import {evaluateWrittenAnswer,getQuizHint} from '../lib/quiz-feedback';
@@ -41,7 +41,7 @@ export default function Lume(){
  const deck=data?.decks.find(d=>d.id===selected),cards=data?.cards.filter(c=>c.deck_id===selected)??[],due=data?.cards.filter(c=>c.due<=Date.now())??[];
  const searchText=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  const cardTerm=searchText(cardSearch.trim()),visibleCards=cards.filter(card=>searchText(card.front+'\n'+card.back).includes(cardTerm));
- const current=session?.cards[session.index],exercise=RELEASE_FEATURES.cardTemplates?current?.details?.template:undefined,structured=Boolean(session?.quiz&&exercise&&exercise.type!=='image'),choice=structured?undefined:session?.choices?.[session.index];
+ const current=session?.cards[session.index],exercise=current?.details?.template&&isReleasedCardType(current.details.template.type)?current.details.template:undefined,structured=Boolean(session?.quiz&&exercise&&exercise.type!=='image'),choice=structured?undefined:session?.choices?.[session.index];
  useEffect(()=>{setFlipped(false);setAnswer('');setHintShown(false);setAnswerConfirmed(false);setTemplateCorrect(false);},[current?.id,session?.quiz]);
  function navigate(t:string){if(workspaceDirty){setNotice('Salve ou descarte suas notas e aguarde o envio antes de sair.');return;}setDeckView('cards');setTab(t);setSelected(null);setSession(null);setCardSearch('');}
  function start(list:Card[],quiz=false,multiple=false){try{const choices=multiple?buildChoiceQuestions(list):undefined;setSession({cards:[...list],index:0,quiz,choices});setFlipped(false);setAnswer('');setError('');}catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar o quiz.');}}

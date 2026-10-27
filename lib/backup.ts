@@ -1,7 +1,7 @@
 import {z} from 'zod';
-import {releaseCardDetailsSchema,tutorReferenceSchema} from './content.ts';
+import {releaseCardDetailsSchema,tutorReferenceSchema,isCardAnswerConsistent} from './content.ts';
 const id=z.string().min(1).max(100),time=z.number().int().nonnegative().max(8_640_000_000_000_000);
-const card=z.object({id,front:z.string().trim().min(1).max(2000),back:z.string().trim().min(1).max(6000),due:time,interval:z.number().int().min(0).max(365),repetitions:z.number().int().min(0).max(100000),details:releaseCardDetailsSchema.optional()});
+const card=z.object({id,front:z.string().trim().min(1).max(2000),back:z.string().trim().min(1).max(6000),due:time,interval:z.number().int().min(0).max(365),repetitions:z.number().int().min(0).max(100000),details:releaseCardDetailsSchema.optional()}).refine(isCardAnswerConsistent,{message:"Gabarito verdadeiro/falso inconsistente."});
 const version=z.object({revision:z.number().int().min(0),title:z.string().trim().min(1).max(120),content:z.string().max(24000),created:time});
 const material=z.object({id,deck_id:id,title:z.string().trim().min(1).max(120),content:z.string().max(24000),revision:z.number().int().min(0),created:time,updated:time,versions:z.array(version).max(20).default([])});
 export const backupSchema=z.object({version:z.literal(2),exportedAt:z.string().max(100),decks:z.array(z.object({id,title:z.string().trim().min(1).max(120),description:z.string().max(500),color:z.enum(['violet','peach','green','blue']),source:z.string().max(24000),parent_id:id.nullable().optional(),created:time,cards:z.array(card).max(900)})).max(30),reviews:z.array(z.object({deck_id:id,card_id:id,rating:z.enum(['again','hard','good','easy']),created:time})).max(3000),messages:z.array(z.object({deck_id:id,role:z.enum(['user','assistant']),content:z.string().max(30000),created:time,references:z.array(tutorReferenceSchema).max(12).optional()})).max(1000),materials:z.array(material).max(100).default([])});
