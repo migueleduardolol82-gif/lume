@@ -39,3 +39,5 @@ Na versão publicada em25/10/2026:130 testes offline, integração, build e amos
 Concluir verdadeiro/falso e depois outros tipos avançados, aulas guiadas com retomada, leitura de arquivos pelo Tutor e backup binário. Os tipos incompletos permanecem bloqueados por feature flag.
 
 Chaves e banco são configurados no servidor. Não há chaves, dados pessoais, dependências ou arquivos de estudos incluídos neste repositório. Consulte `docs/CONTINUIDADE.md` para o contexto de desenvolvimento.
+
+Nesta branch, verdadeiro/falso está implementado e protegido por testes; a validação integrada com banco ainda está pendente. O workflow `.github/workflows/quality.yml` verifica testes offline, TypeScript e build em pull requests e em `main`. Ele não usa segredos, banco de produção ou API de IA.

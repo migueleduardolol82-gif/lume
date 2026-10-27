@@ -41,3 +41,11 @@ Esta etapa não altera o modelo/prompt de geração nem chama IA real. A versão
 Validação em 27/10/2026: npm.cmd test passou (115 testes de lógica e 29 de componentes); npm.cmd run build passou com TypeScript. A prévia sintética no navegador confirmou criação com gabarito Falso e conferência correta, sem banco ou IA.
 
 A integração real ainda está pendente: o servidor iniciado nesta cópia respondeu 500 no primeiro GET /api/lume, com AggregateError no acesso aos estudos. O teste interrompeu antes de criar fixtures. Não considerar persistência real validada nem publicar esta branch até resolver o acesso e executar npm.cmd run test:integration.
+
+## Diagnóstico e regressões da API — 27/10/2026
+
+A consulta mínima SELECT 1 ao banco falhou com AggregateError/EACCES no syscall connect. É uma restrição de conexão deste ambiente, anterior às consultas da aplicação. Nenhuma credencial foi exibida e a verificação TLS foi preservada. Não alterar o código de persistência para contornar essa restrição.
+
+A suíte offline agora inclui sete testes da rota real compilada com banco e identidade simulados, sem rede nem IA. REG-TF-EDIT-002 detecta edição legada que omite details e contradiz o gabarito salvo; REG-TF-IMPORT-002 detecta importação legada que omite details na coluna de destino. As duas regressões foram demonstradas falhando numa cópia compilada sem as correções e passando no código atual. Esses testes não substituem a integração com PostgreSQL.
+
+Total local aprovado: 151 testes (115 de lógica, 29 de componentes e sete contratos da API), incluindo TypeScript. O build da alteração funcional passou na etapa anterior. O workflow .github/workflows/quality.yml executa regressão e build em pull requests e mudanças em main, sem segredos ou chamadas de IA. Confirmar a execução no GitHub após envio; testes integrados com banco continuam necessários antes do deploy.
