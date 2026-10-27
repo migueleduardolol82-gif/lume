@@ -40,4 +40,4 @@ Concluir verdadeiro/falso e depois outros tipos avançados, aulas guiadas com re
 
 Chaves e banco são configurados no servidor. Não há chaves, dados pessoais, dependências ou arquivos de estudos incluídos neste repositório. Consulte `docs/CONTINUIDADE.md` para o contexto de desenvolvimento.
 
-Nesta branch, verdadeiro/falso está implementado e protegido por testes; a validação integrada com banco ainda está pendente. O workflow `.github/workflows/quality.yml` verifica testes offline, TypeScript e build em pull requests e em `main`. Ele não usa segredos, banco de produção ou API de IA.
+Nesta branch, verdadeiro/falso está implementado e validado com PostgreSQL real descartável. O workflow `.github/workflows/quality.yml` verifica testes offline, TypeScript, build e integração em pull requests e em `main`. A integração aplica as migrações em um banco temporário com TLS verificado, sem segredos de produção ou API de IA. A execução 40602058706 aprovou ambas as etapas no commit 03b9363a9b7ca9e38e37d176c495285347e54fd7. Publicação em produção é uma etapa separada.
