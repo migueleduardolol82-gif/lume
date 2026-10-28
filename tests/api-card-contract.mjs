@@ -43,3 +43,12 @@ test('true/false API rejects stale revision and foreign origin without changing 
  reset(falseCard);assert.equal((await post({action:'editCard',deckId:'deck',revision:1,card:falseCard})).status,409);assert.equal(fixture.writes.length,0);
  assert.equal((await post({action:'saveCards',deckId:'deck',cards:[falseCard]},'https://external.example')).status,403);assert.equal(fixture.writes.length,0);
 });
+
+const clozeCard={id:'cloze',front:'Complete a carga',back:'Carga -1.',revision:2,details:{template:{type:'cloze',text:'Carga {{-1}}.'}}};
+test('REG-CLOZE-API-001: contradicting or malformed blanks cannot be written, including edits without details',async()=>{
+ for(const card of [{...clozeCard,back:'Carga 1.'},{...clozeCard,details:{template:{type:'cloze',text:'Carga {{{-1}}}.'}}}]){reset();assert.equal((await post({action:'saveCards',deckId:'deck',cards:[card]})).status,400);assert.equal(fixture.writes.length,0);}
+ reset(clozeCard);assert.equal((await post({action:'editCard',deckId:'deck',revision:2,card:{id:'cloze',front:clozeCard.front,back:'Carga 1.'}})).status,400);assert.equal(fixture.writes.length,0);
+});
+test('cloze legacy import passes authored markup to the database',async()=>{
+ reset();assert.equal((await post({action:'importBackup',decks:[{title:'Lacunas',cards:[clozeCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,clozeCard.details);
+});

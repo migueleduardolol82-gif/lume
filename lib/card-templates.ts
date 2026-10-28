@@ -14,7 +14,7 @@ export const cardTemplateSchema=z.discriminatedUnion('type',[
  if(value.type==='multi_select'&&(!unique(value.choices.map(c=>c.text))||!value.choices.some(c=>c.correct)||value.choices.every(c=>c.correct)))fail('Use opções distintas, ao menos uma correta e uma incorreta.');
  if(value.type==='order'&&!unique(value.items))fail('Os itens de ordenação devem ser distintos.');
  if(value.type==='match'&&(!unique(value.pairs.map(p=>p.left))||!unique(value.pairs.map(p=>p.right))))fail('Use termos e correspondências distintos.');
- if(value.type==='cloze'){const blanks=clozeParts(value.text).filter(p=>p.answer!==undefined);if(!blanks.length||blanks.length>8||value.text.replace(/\{\{[^{}\n]+\}\}/gu,'').includes('{{')||blanks.some(p=>!p.answer?.trim()||p.answer.length>1000))fail('Marque de uma a oito lacunas com {{resposta}}, sem chaves aninhadas.');}
+ if(value.type==='cloze'){const blanks=clozeParts(value.text).filter(p=>p.answer!==undefined);if(!blanks.length||blanks.length>8||/\{\{\{|\}\}\}/u.test(value.text)||value.text.replace(/\{\{[^{}\n]+\}\}/gu,'').match(/\{\{|\}\}/u)||blanks.some(p=>!p.answer?.trim()||p.answer.length>1000))fail('Marque de uma a oito lacunas com {{resposta}}, sem chaves aninhadas.');}
 });
 export type CardTemplate=z.infer<typeof cardTemplateSchema>;
 export const TEMPLATE_LABELS={qa:'Pergunta e resposta',multi_select:'Múltipla seleção',cloze:'Preencher lacunas',order:'Ordenar itens',match:'Associar pares',true_false:'Verdadeiro ou falso',image:'Pergunta com imagem'} as const;
