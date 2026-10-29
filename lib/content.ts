@@ -5,10 +5,10 @@ export const cardDetailsSchema=z.object({origin:z.string().trim().max(200).optio
 export type CardDetails=z.infer<typeof cardDetailsSchema>;
 export function isCardAnswerConsistent(card:{back:string;details?:CardDetails}):boolean{
  const template=card.details?.template;
- return !template||!['true_false','cloze'].includes(template.type)||card.back===templateReference(template);
+ return !template||!['true_false','cloze','multi_select'].includes(template.type)||card.back===templateReference(template);
 }
 // Read schema preserves work in progress; write/restore schema prevents incomplete features entering the release.
-export const releaseCardDetailsSchema=cardDetailsSchema.refine(details=>!details.template||isReleasedCardType(details.template.type),{message:'Este tipo de cartão ainda está em preparação. Use pergunta e resposta, verdadeiro/falso ou lacunas nesta versão.'});
+export const releaseCardDetailsSchema=cardDetailsSchema.refine(details=>!details.template||isReleasedCardType(details.template.type),{message:'Este tipo de cartão ainda está em preparação. Use pergunta e resposta, verdadeiro/falso, lacunas ou múltipla seleção nesta versão.'});
 export const tutorReferenceSchema=z.object({id:z.string().max(200),label:z.string().max(300),text:z.string().max(2000),kind:z.enum(['note','card','source'])});
 export type TutorReference=z.infer<typeof tutorReferenceSchema>;
 export type MaterialNote={id:string;deck_id:string;title:string;content:string;revision:number;created:number;updated:number};

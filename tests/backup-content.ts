@@ -105,3 +105,7 @@ test('cloze backup preserves authored blanks and progress, rejecting contradicto
  const result=restore(input);assert.deepEqual(result.cards[0].details,{...details,template:{type:'cloze',text:'Carga {{-1}} e íon {{Na⁺}}.'}});assert.equal(result.cards[0].due,5000);assert.notEqual(result.cards[0].id,'card-old');
  input.decks[0].cards[0].back='Carga 1 e íon Na⁺.';assert.throws(()=>restore(input));
 });
+
+test('multi-select backup preserves mixed key, source and progress and rejects contradictory back',()=>{
+ const input=fixture();input.decks[0].cards[0].back='-1\nNa⁺';Object.assign(input.decks[0].cards[0].details,{template:{type:'multi_select',choices:[{text:'-1',correct:true},{text:'1',correct:false},{text:'Na⁺',correct:true}]}});const result=restore(input);assert.deepEqual(result.cards[0].details,input.decks[0].cards[0].details);assert.equal(result.cards[0].due,5000);assert.equal(result.cards[0].interval,3);input.decks[0].cards[0].back='1\nNa⁺';assert.throws(()=>restore(input));
+});

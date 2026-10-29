@@ -52,3 +52,12 @@ test('REG-CLOZE-API-001: contradicting or malformed blanks cannot be written, in
 test('cloze legacy import passes authored markup to the database',async()=>{
  reset();assert.equal((await post({action:'importBackup',decks:[{title:'Lacunas',cards:[clozeCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,clozeCard.details);
 });
+
+const multiCard={id:'multi',front:'Selecione as referências',back:'-1\nNa⁺',revision:2,details:{template:{type:'multi_select',choices:[{text:'-1',correct:true},{text:'1',correct:false},{text:'Na⁺',correct:true}]}}};
+test('REG-MULTI-API-001: invalid key, duplicate options and legacy contradiction cannot be written',async()=>{
+ for(const card of [{...multiCard,back:'1\nNa⁺'},{...multiCard,details:{template:{type:'multi_select',choices:[{text:'A',correct:true},{text:'A',correct:false}]}}}]){reset();assert.equal((await post({action:'saveCards',deckId:'deck',cards:[card]})).status,400);assert.equal(fixture.writes.length,0);}
+ reset(multiCard);assert.equal((await post({action:'editCard',deckId:'deck',revision:2,card:{id:'multi',front:multiCard.front,back:'1\nNa⁺'}})).status,400);assert.equal(fixture.writes.length,0);
+});
+test('multi-select legacy import preserves every option and the mixed key',async()=>{
+ reset();assert.equal((await post({action:'importBackup',decks:[{title:'Seleção',cards:[multiCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,multiCard.details);
+});

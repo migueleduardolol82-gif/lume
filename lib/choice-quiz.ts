@@ -5,12 +5,12 @@ function shuffle<T>(items:readonly T[],random:()=>number){const copy=[...items];
 export function canBuildChoiceQuiz(cards:readonly QuizCard[]):boolean{try{buildChoiceQuestions(cards,()=>0);return true;}catch{return false;}}
 /** Options are fixed when the session starts, so refreshes cannot move an answer. */
 export function buildChoiceQuestions(cards:readonly QuizCard[],random:()=>number=Math.random):ChoiceQuestion[]{
- const ordinary=cards.filter(card=>!['true_false','cloze'].includes(card.details?.template?.type??''));
+ const ordinary=cards.filter(card=>!['true_false','cloze','multi_select'].includes(card.details?.template?.type??''));
  const pool=[...new Map(ordinary.filter(c=>c.back.trim()).map(c=>[answerKey(c.back),c])).values()];
  if(!cards.length)throw new Error('Adicione pelo menos duas respostas diferentes ao baralho para usar o quiz de alternativas.');
  return cards.map(card=>{
   const template=card.details?.template;
-  if(template?.type==='cloze')return {cardId:card.id,correctId:card.id,options:[]};
+  if(template?.type==='cloze'||template?.type==='multi_select')return {cardId:card.id,correctId:card.id,options:[]};
   if(template?.type==='true_false'&&typeof template.correct==='boolean')return {cardId:card.id,correctId:card.id,options:shuffle([{id:card.id,text:template.correct?'Verdadeiro':'Falso'},{id:card.id+':opposite',text:template.correct?'Falso':'Verdadeiro'}],random)};
   const correctKey=answerKey(card.back);
   const custom=[...new Set((card.details?.alternatives??[]).map(answerKey).filter(text=>text&&text!==correctKey))];
