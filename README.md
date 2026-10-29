@@ -39,3 +39,7 @@ Na versão publicada em25/10/2026:130 testes offline, integração, build e amos
 Concluir verdadeiro/falso e depois outros tipos avançados, aulas guiadas com retomada, leitura de arquivos pelo Tutor e backup binário. Os tipos incompletos permanecem bloqueados por feature flag.
 
 Chaves e banco são configurados no servidor. Não há chaves, dados pessoais, dependências ou arquivos de estudos incluídos neste repositório. Consulte `docs/CONTINUIDADE.md` para o contexto de desenvolvimento.
+
+Nesta branch, verdadeiro/falso está implementado e validado com PostgreSQL real descartável. O workflow `.github/workflows/quality.yml` verifica testes offline, TypeScript, build e integração em pull requests e em `main`. A integração aplica as migrações em um banco temporário com TLS verificado, sem segredos de produção ou API de IA. A execução 40602058706 aprovou ambas as etapas no commit 03b9363a9b7ca9e38e37d176c495285347e54fd7. Publicação em produção é uma etapa separada.
+
+O incremento `codex/cloze` acrescenta cartões de preencher lacunas (`{{resposta}}`), com uma a oito respostas, editor, recuperação de rascunhos, quiz e gabarito consistente na API/backup. Ele depende da entrega de verdadeiro/falso e tem validação própria no CI antes de publicação.

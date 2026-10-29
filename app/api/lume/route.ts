@@ -4,13 +4,14 @@ import { schedule } from "../../../lib/study";
 import { ai, AppError } from "../../../lib/ai";
 import { z } from "zod";
 import {readTicket} from "../../../lib/upload-ticket";
-import {releaseCardDetailsSchema} from '../../../lib/content';
+import {releaseCardDetailsSchema,isCardAnswerConsistent} from '../../../lib/content';
 import {buildTutorContext,buildTutorPrompt} from '../../../lib/tutor-context';
 import {buildCardGenerationPrompt,assessGeneratedCards} from "../../../lib/card-quality";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 const id = z.string().min(1).max(100);
-const cardInput = z.object({ id, front: z.string().trim().min(1).max(2000), back: z.string().trim().min(1).max(6000),details:releaseCardDetailsSchema.optional() });
+const cardInputBase = z.object({ id, front: z.string().trim().min(1).max(2000), back: z.string().trim().min(1).max(6000),details:releaseCardDetailsSchema.optional() });
+const cardInput=cardInputBase.refine(isCardAnswerConsistent,{message:'A resposta deve corresponder ao gabarito do exercício.'});
 const colors = z.enum(["violet", "peach", "green", "blue"]);
 const actions = z.discriminatedUnion("action", [
   z.object({ action: z.literal("createDeck"), id, title: z.string().trim().min(1).max(120), description: z.string().max(500).default(""), color: colors.default("violet"),parentId:id.optional() }),
@@ -23,7 +24,7 @@ const actions = z.discriminatedUnion("action", [
   z.object({ action: z.literal("review"), deckId: id, cardId: id, eventId: id, revision: z.number().int().min(0), rating: z.enum(["again", "hard", "good", "easy"]) }),
   z.object({ action: z.literal("generate"), deckId: id, text: z.string().max(24000), count: z.number().int().min(1).max(20), total:z.number().int().min(3).max(300).optional(), offset:z.number().int().min(0).max(299).default(0), previous:z.array(z.string().max(2000)).max(300).default([]), fileTicket:z.string().max(3000).optional(), file: z.object({ name: z.string().max(200), type: z.enum(["application/pdf", "image/png", "image/jpeg", "image/webp"]), data: z.string().max(4_100_000) }).optional() }),
   z.object({ action: z.literal("tutor"), deckId: id, question: z.string().trim().min(1).max(2000) }),
-  z.object({ action: z.literal("importBackup"), decks: z.array(z.object({ title: z.string().trim().min(1).max(120), description: z.string().max(500).default(""), color: colors.default("violet"), cards: z.array(cardInput.omit({ id: true })).max(900) })).max(30) }),
+  z.object({ action: z.literal("importBackup"), decks: z.array(z.object({ title: z.string().trim().min(1).max(120), description: z.string().max(500).default(""), color: colors.default("violet"), cards: z.array(cardInputBase.omit({ id: true }).refine(isCardAnswerConsistent)).max(900) })).max(30) }),
 ]);
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 async function context() { const user = await getOwner(); if (!user) throw new AppError("Entre com sua conta para acessar seus estudos.", 401); if (!process.env.DATABASE_URL) throw new AppError("Banco de estudos indisponível.", 503); return { user, db }; }
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
    const cards=decks.flatMap(d=>d.cards.map(c=>({...c,id:crypto.randomUUID(),deck_id:d.id})));
    const queries:Statement[]=[];
    if(decks.length)queries.push(db.prepare("INSERT INTO decks(id,owner,title,description,color,source,created) SELECT x.id,?,x.title,x.description,x.color,'',? FROM jsonb_to_recordset(?::jsonb) AS x(id text,title text,description text,color text)").bind(owner,now,JSON.stringify(decks)));
-   if(cards.length)queries.push(db.prepare("INSERT INTO cards(id,owner,deck_id,front,back,due,interval,repetitions,revision) SELECT x.id,?,x.deck_id,x.front,x.back,?,0,0,0 FROM jsonb_to_recordset(?::jsonb) AS x(id text,deck_id text,front text,back text)").bind(owner,now,JSON.stringify(cards)));
+   if(cards.length)queries.push(db.prepare("INSERT INTO cards(id,owner,deck_id,front,back,due,interval,repetitions,revision,details) SELECT x.id,?,x.deck_id,x.front,x.back,?,0,0,0,COALESCE(x.details,'{}'::jsonb) FROM jsonb_to_recordset(?::jsonb) AS x(id text,deck_id text,front text,back text,details jsonb)").bind(owner,now,JSON.stringify(cards)));
    if(queries.length)await db.batch(queries);
   }else{
    const deck=await db.prepare("SELECT * FROM decks WHERE id=? AND owner=?").bind(a.deckId,owner).first<{title:string;source:string}>();if(!deck)throw new AppError("Baralho não encontrado na sua conta.",404);
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
      if(!current)throw new AppError("Este cartão foi removido. Atualize o baralho antes de continuar.",404);
      if(a.revision!==undefined&&a.revision!==current.revision)throw new AppError("Este cartão mudou em outro acesso. Atualize antes de salvar.",409);
      const details={...(a.card.details??current.details??{})};
+     if(!isCardAnswerConsistent({back:a.card.back,details}))throw new AppError('A resposta deve corresponder ao gabarito do exercício.');
      if(details.materialId&&!await tx.prepare("SELECT id FROM materials WHERE id=? AND owner=? AND deck_id=?").bind(details.materialId,owner,a.deckId).first())throw new AppError("Nota de origem não encontrada neste baralho.",400);
      if((current.front!==a.card.front||current.back!==a.card.back)&&details.evidence)details.evidenceStatus='needs_review';
      await tx.prepare("UPDATE cards SET front=?,back=?,details=?::jsonb,revision=revision+1 WHERE id=? AND deck_id=? AND owner=?").bind(a.card.front,a.card.back,JSON.stringify(details),a.card.id,a.deckId,owner).run();
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
     if(a.file){if(!a.file.data.startsWith(`data:${a.file.type};base64,`)||!/^[A-Za-z0-9+/=]+$/.test(a.file.data.split(",")[1]||""))throw new AppError("Arquivo inválido.");content.push(a.file.type==="application/pdf"?{type:"input_file",filename:a.file.name,file_data:a.file.data}:{type:"input_image",image_url:a.file.data});}
     const text=await ai(content,{type:"json_schema",name:"study_cards",strict:true,schema:{type:"object",properties:{cards:{type:"array",minItems:0,maxItems:a.count,items:{type:"object",properties:{front:{type:"string"},back:{type:"string"},evidence:{type:"string"}},required:["front","back","evidence"],additionalProperties:false}}},required:["cards"],additionalProperties:false}});
     let data:unknown;try{data=JSON.parse(text);}catch{throw new AppError("A IA retornou dados incompletos. Tente menos cartões.",502);}
-    const valid=z.object({cards:z.array(cardInput.omit({id:true}).extend({evidence:z.string().trim().max(6000)})).max(a.count)}).safeParse(data);
+    const valid=z.object({cards:z.array(cardInputBase.omit({id:true}).extend({evidence:z.string().trim().max(6000)}).refine(isCardAnswerConsistent)).max(a.count)}).safeParse(data);
     if(!valid.success)throw new AppError("Geração inválida. Tente novamente.",502);
     const assessed=assessGeneratedCards(valid.data.cards,{sourceText:a.text,hasAttachment,previous:a.previous});
     return json({cards:assessed.cards.map(c=>({...c,id:crypto.randomUUID()})),issues:assessed.issues,insufficient:valid.data.cards.length===0});

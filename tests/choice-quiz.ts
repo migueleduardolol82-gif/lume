@@ -30,3 +30,26 @@ test('duplicate answer in another topic does not erase a related alternative',()
  const questions=buildChoiceQuestions([{id:'a',front:'Q',back:'A',details:{tags:['bio']}},{id:'b',front:'Q',back:'B',details:{tags:['bio']}},{id:'c',front:'Q',back:'B',details:{tags:['história']}}]);
  assert.equal(questions[0].source,'related');assert.equal(questions[0].options.length,2);
 });
+
+test('true/false cards build two authored options without unrelated distractors',()=>{
+ const cards=[{id:'false-card',front:'Afirmação sintética',back:'Falso',details:{template:{type:'true_false',correct:false}}}];
+ const result=buildChoiceQuestions(cards,()=>0);
+ assert.equal(result.length,1);assert.equal(result[0].cardId,'false-card');
+ assert.deepEqual(new Set(result[0].options.map(option=>option.text)),new Set(['Verdadeiro','Falso']));
+ assert.equal(result[0].options.find(option=>option.id===result[0].correctId)?.text,'Falso');
+});
+
+test('REG-TF-CHOICE-001: boolean keys cannot become distractors for unrelated ordinary questions',()=>{
+ const mixed=[{id:'tf',front:'Afirmação',back:'Falso',details:{template:{type:'true_false',correct:false}}},{id:'a',front:'Cidade A',back:'Paris'},{id:'b',front:'Cidade B',back:'Londres'}];
+ const questions=buildChoiceQuestions(mixed,()=>0);
+ assert.deepEqual(questions.map(question=>question.cardId),['tf','a','b']);
+ assert.deepEqual(new Set(questions[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
+});
+
+test('REG-CLOZE-CHOICE-001: cloze-only quiz starts without exposing answers as ordinary distractors',()=>{
+ const cloze={id:'c',front:'Complete',back:'Carga -1.',details:{template:{type:'cloze'}}};
+ assert.equal(canBuildChoiceQuiz([cloze]),true);
+ const mixed=buildChoiceQuestions([cloze,{id:'a',front:'Cidade A',back:'Paris'},{id:'b',front:'Cidade B',back:'Londres'}],()=>0);
+ assert.deepEqual(mixed.map(question=>question.cardId),['c','a','b']);assert.deepEqual(mixed[0].options,[]);
+ assert.deepEqual(new Set(mixed[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
+});
