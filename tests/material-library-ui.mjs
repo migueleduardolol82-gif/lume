@@ -67,7 +67,7 @@ test('REG-DRAFT-COUNT-001: temporarily invalid count does not destroy the last r
 
 test('release editor exposes only completed card type',async()=>{
  const node=document.getElementById('root'),root=createRoot(node);
- try{await act(()=>root.render(createElement(CardEditor,{id:'new-release',busy:false,pending:false,onSave:async()=>false})));assert.deepEqual([...node.querySelectorAll('select[aria-label="Tipo de cartão"] option')].map(option=>option.value),['qa','true_false']);}finally{await act(()=>root.unmount());}
+ try{await act(()=>root.render(createElement(CardEditor,{id:'new-release',busy:false,pending:false,onSave:async()=>false})));assert.deepEqual([...node.querySelectorAll('select[aria-label="Tipo de cartão"] option')].map(option=>option.value),['qa','cloze','true_false']);}finally{await act(()=>root.unmount());}
 });
 
 test('REG-GENERATE-SHORT-002: short pasted source finishes with drafts and no false error or paid retry button',async()=>{
@@ -189,4 +189,47 @@ test('true/false editor recovers the chosen key and keeps its draft after a fail
   await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
   assert.equal(saved.back,'Verdadeiro');assert.ok(localStorage.getItem(draftKey('qa-tf-draft','deck','card:tf-draft')));
  }finally{await act(()=>root.unmount());localStorage.clear();}
+});
+
+test('cloze editor preserves source and markup when saving and reopening',async()=>{
+ const node=document.getElementById('root'),root=createRoot(node);let saved;
+ const card={id:'cloze-edit',front:'Complete as cargas',back:'Carga -1 e íon Na⁺.',revision:4,details:{origin:'Fonte sintética',template:{type:'cloze',text:'Carga {{-1}} e íon {{Na⁺}}.'}}};
+ try{await act(()=>root.render(createElement(CardEditor,{card,id:'new',busy:false,pending:false,onSave:async value=>{saved=value;return true;}})));
+ assert.equal(node.querySelector('[aria-label="Conteúdo do exercício"]').value,card.details.template.text);
+ await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ assert.equal(saved.back,card.back);assert.deepEqual(saved.details.template,card.details.template);assert.equal(saved.details.origin,card.details.origin);assert.equal(saved.revision,4);
+ await act(()=>root.render(createElement(CardEditor,{key:'reopen-cloze',card:saved,id:'new',busy:false,pending:false,onSave:async()=>true})));assert.equal(node.querySelector('[aria-label="Conteúdo do exercício"]').value,card.details.template.text);
+ }finally{await act(()=>root.unmount());}
+});
+
+test('cloze editor blocks malformed markup and recovers unsaved changes after a failed save',async()=>{
+ localStorage.clear();const node=document.getElementById('root');let root=createRoot(node),calls=0;
+ const card={id:'cloze-draft',front:'Complete',back:'Carga -1.',details:{template:{type:'cloze',text:'Carga {{-1}}.'}}};
+ const props={card,id:'new',deckId:'deck',draftScope:'qa-cloze',busy:false,pending:false,onSave:async()=>{calls++;return false;}};
+ const fill=async text=>act(()=>{const input=node.querySelector('[aria-label="Conteúdo do exercício"]');Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));});
+ try{await act(()=>root.render(createElement(CardEditor,props)));await fill('Carga {{{-1}}}.');await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(calls,0);assert.match(node.querySelector('[role=alert]').textContent,/lacunas/);
+ await fill('Carga {{-2}}.');await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(calls,1);
+ await act(()=>root.unmount());root=createRoot(node);await act(()=>root.render(createElement(CardEditor,props)));await button(node,'Recuperar rascunho');assert.equal(node.querySelector('[aria-label="Conteúdo do exercício"]').value,'Carga {{-2}}.');
+ }finally{await act(()=>root.unmount());localStorage.clear();}
+});
+
+for(const correctChoice of [true,false])test('cloze exercise requires all blanks and reveals the key only after confirmation: '+correctChoice,async()=>{
+ const {default:TemplateQuiz}=await import('../.test-artifacts/app/template-quiz.mjs');const node=document.getElementById('root'),root=createRoot(node);let revealed=false;const results=[];
+ const render=()=>root.render(createElement(TemplateQuiz,{template:{type:'cloze',text:'Carga {{-1}} e íon {{Na⁺}}.'},revealed,busy:false,onComplete:value=>{results.push(value);revealed=true;render();}}));
+ const fill=async(index,text)=>act(()=>{const input=node.querySelectorAll('input')[index];Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));});
+ try{await act(render);assert.equal(node.querySelector('button').disabled,true);assert.ok(!node.textContent.includes('Na⁺'));assert.ok(!node.textContent.includes('-1'));
+ await fill(0,correctChoice?'-1':'1');assert.equal(node.querySelector('button').disabled,true);await fill(1,'Na⁺');assert.deepEqual(results,[]);await button(node,'Conferir exercício');assert.deepEqual(results,[correctChoice]);assert.ok([...node.querySelectorAll('input')].every(input=>input.disabled));assert.match(node.querySelector('[role=status]').textContent,/Carga -1 e íon Na⁺/);
+ }finally{await act(()=>root.unmount());}
+});
+
+for(const correctChoice of [true,false])test('REG-CLOZE-STUDY-001: quiz records only on advance and clears the next blanks: '+correctChoice,async()=>{
+ const {default:Lume}=await import('../.test-artifacts/app/lume.mjs');const previousClearInterval=globalThis.clearInterval;globalThis.clearInterval=dom.window.clearInterval.bind(dom.window);const previousNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
+ const node=document.getElementById('root'),root=createRoot(node),requests=[];
+ const state={name:'Prévia local',draftScope:'cloze-study',decks:[{id:'cloze-deck',title:'Lacunas sintéticas',description:'',color:'green',source:''}],cards:[{id:'c1',deck_id:'cloze-deck',front:'Complete a carga',back:'Carga -1.',revision:0,due:0,interval:0,details:{template:{type:'cloze',text:'Carga {{-1}}.'}}},{id:'c2',deck_id:'cloze-deck',front:'Complete o íon',back:'Íon Na⁺.',revision:0,due:0,interval:0,details:{template:{type:'cloze',text:'Íon {{Na⁺}}.'}}}],reviews:[],messages:[],aiReady:false};let failOnce=!correctChoice;
+ globalThis.fetch=async(url,options={})=>{if(String(url).includes('/materials'))return Response.json({notes:[],files:[]});if(options.method==='POST'){requests.push(JSON.parse(options.body));if(failOnce){failOnce=false;return Response.json({error:'Falha sintética'},{status:500});}}return Response.json(state);};
+ try{await act(async()=>root.render(createElement(Lume)));await act(()=>[...node.querySelectorAll('button')].find(b=>b.textContent.includes('Lacunas sintéticas')).click());await button(node,'Quiz de alternativas');
+ const input=node.querySelector('[aria-label="Lacuna 1"]');assert.ok(input);await act(()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(input,correctChoice?'-1':'1');input.dispatchEvent(new Event('input',{bubbles:true}));});await button(node,'Conferir exercício');assert.equal(requests.length,0);await button(node,'Próximo cartão');
+ if(!correctChoice){assert.equal(node.querySelector('.study .pill').textContent,'1 / 2');await button(node,'Próximo cartão');}
+ assert.equal(requests.at(-1).cardId,'c1');assert.equal(requests.at(-1).rating,correctChoice?'good':'again');assert.equal(node.querySelector('.study .pill').textContent,'2 / 2');assert.equal(node.querySelector('[aria-label="Lacuna 1"]').value,'');assert.ok(!node.querySelector('.template-quiz').textContent.includes('Na⁺'));
+ }finally{await act(()=>root.unmount());globalThis.clearInterval=previousClearInterval;if(previousNavigator)Object.defineProperty(globalThis,'navigator',previousNavigator);else delete globalThis.navigator;}
 });

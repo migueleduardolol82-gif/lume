@@ -45,3 +45,11 @@ test('REG-TF-CHOICE-001: boolean keys cannot become distractors for unrelated or
  assert.deepEqual(questions.map(question=>question.cardId),['tf','a','b']);
  assert.deepEqual(new Set(questions[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
 });
+
+test('REG-CLOZE-CHOICE-001: cloze-only quiz starts without exposing answers as ordinary distractors',()=>{
+ const cloze={id:'c',front:'Complete',back:'Carga -1.',details:{template:{type:'cloze'}}};
+ assert.equal(canBuildChoiceQuiz([cloze]),true);
+ const mixed=buildChoiceQuestions([cloze,{id:'a',front:'Cidade A',back:'Paris'},{id:'b',front:'Cidade B',back:'Londres'}],()=>0);
+ assert.deepEqual(mixed.map(question=>question.cardId),['c','a','b']);assert.deepEqual(mixed[0].options,[]);
+ assert.deepEqual(new Set(mixed[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
+});

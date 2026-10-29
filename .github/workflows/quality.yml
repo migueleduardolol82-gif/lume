@@ -2,7 +2,7 @@ name: Regressao e build
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, codex/true-false]
   push:
     branches: [main]
 

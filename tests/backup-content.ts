@@ -99,3 +99,9 @@ test('REG-TF-ANSWER-001: backup rejects a textual answer contradicting its boole
  const input=fixture();input.decks[0].cards[0].back='Verdadeiro';Object.assign(input.decks[0].cards[0].details,{template:{type:'true_false',correct:false}});
  assert.throws(()=>restore(input));
 });
+
+test('cloze backup preserves authored blanks and progress, rejecting contradictory answer text',()=>{
+ const input=fixture();input.decks[0].cards[0].back='Carga -1 e íon Na⁺.';Object.assign(input.decks[0].cards[0].details,{template:{type:'cloze',text:'Carga {{-1}} e íon {{Na⁺}}.'}});
+ const result=restore(input);assert.deepEqual(result.cards[0].details,{...details,template:{type:'cloze',text:'Carga {{-1}} e íon {{Na⁺}}.'}});assert.equal(result.cards[0].due,5000);assert.notEqual(result.cards[0].id,'card-old');
+ input.decks[0].cards[0].back='Carga 1 e íon Na⁺.';assert.throws(()=>restore(input));
+});

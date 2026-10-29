@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 const id = z.string().min(1).max(100);
 const cardInputBase = z.object({ id, front: z.string().trim().min(1).max(2000), back: z.string().trim().min(1).max(6000),details:releaseCardDetailsSchema.optional() });
-const cardInput=cardInputBase.refine(isCardAnswerConsistent,{message:'A resposta deve corresponder ao gabarito verdadeiro/falso.'});
+const cardInput=cardInputBase.refine(isCardAnswerConsistent,{message:'A resposta deve corresponder ao gabarito do exercício.'});
 const colors = z.enum(["violet", "peach", "green", "blue"]);
 const actions = z.discriminatedUnion("action", [
   z.object({ action: z.literal("createDeck"), id, title: z.string().trim().min(1).max(120), description: z.string().max(500).default(""), color: colors.default("violet"),parentId:id.optional() }),
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
      if(!current)throw new AppError("Este cartão foi removido. Atualize o baralho antes de continuar.",404);
      if(a.revision!==undefined&&a.revision!==current.revision)throw new AppError("Este cartão mudou em outro acesso. Atualize antes de salvar.",409);
      const details={...(a.card.details??current.details??{})};
-     if(!isCardAnswerConsistent({back:a.card.back,details}))throw new AppError('A resposta deve corresponder ao gabarito verdadeiro/falso.');
+     if(!isCardAnswerConsistent({back:a.card.back,details}))throw new AppError('A resposta deve corresponder ao gabarito do exercício.');
      if(details.materialId&&!await tx.prepare("SELECT id FROM materials WHERE id=? AND owner=? AND deck_id=?").bind(details.materialId,owner,a.deckId).first())throw new AppError("Nota de origem não encontrada neste baralho.",400);
      if((current.front!==a.card.front||current.back!==a.card.back)&&details.evidence)details.evidenceStatus='needs_review';
      await tx.prepare("UPDATE cards SET front=?,back=?,details=?::jsonb,revision=revision+1 WHERE id=? AND deck_id=? AND owner=?").bind(a.card.front,a.card.back,JSON.stringify(details),a.card.id,a.deckId,owner).run();
