@@ -53,3 +53,7 @@ test('REG-CLOZE-CHOICE-001: cloze-only quiz starts without exposing answers as o
  assert.deepEqual(mixed.map(question=>question.cardId),['c','a','b']);assert.deepEqual(mixed[0].options,[]);
  assert.deepEqual(new Set(mixed[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
 });
+
+test('multi-select-only quiz starts and authored keys never become ordinary distractors',()=>{
+ const multi={id:'m',front:'Selecione',back:'A\nC',details:{template:{type:'multi_select'}}};assert.equal(canBuildChoiceQuiz([multi]),true);const result=buildChoiceQuestions([multi,{id:'q1',front:'Q1',back:'Paris'},{id:'q2',front:'Q2',back:'Londres'}]);assert.deepEqual(result.map(question=>question.cardId),['m','q1','q2']);assert.deepEqual(result[0].options,[]);assert.deepEqual(new Set(result[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
+});

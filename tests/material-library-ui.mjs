@@ -67,7 +67,7 @@ test('REG-DRAFT-COUNT-001: temporarily invalid count does not destroy the last r
 
 test('release editor exposes only completed card type',async()=>{
  const node=document.getElementById('root'),root=createRoot(node);
- try{await act(()=>root.render(createElement(CardEditor,{id:'new-release',busy:false,pending:false,onSave:async()=>false})));assert.deepEqual([...node.querySelectorAll('select[aria-label="Tipo de cartão"] option')].map(option=>option.value),['qa','cloze','true_false']);}finally{await act(()=>root.unmount());}
+ try{await act(()=>root.render(createElement(CardEditor,{id:'new-release',busy:false,pending:false,onSave:async()=>false})));assert.deepEqual([...node.querySelectorAll('select[aria-label="Tipo de cartão"] option')].map(option=>option.value),['qa','multi_select','cloze','true_false']);}finally{await act(()=>root.unmount());}
 });
 
 test('REG-GENERATE-SHORT-002: short pasted source finishes with drafts and no false error or paid retry button',async()=>{
@@ -231,5 +231,42 @@ for(const correctChoice of [true,false])test('REG-CLOZE-STUDY-001: quiz records 
  const input=node.querySelector('[aria-label="Lacuna 1"]');assert.ok(input);await act(()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(input,correctChoice?'-1':'1');input.dispatchEvent(new Event('input',{bubbles:true}));});await button(node,'Conferir exercício');assert.equal(requests.length,0);await button(node,'Próximo cartão');
  if(!correctChoice){assert.equal(node.querySelector('.study .pill').textContent,'1 / 2');await button(node,'Próximo cartão');}
  assert.equal(requests.at(-1).cardId,'c1');assert.equal(requests.at(-1).rating,correctChoice?'good':'again');assert.equal(node.querySelector('.study .pill').textContent,'2 / 2');assert.equal(node.querySelector('[aria-label="Lacuna 1"]').value,'');assert.ok(!node.querySelector('.template-quiz').textContent.includes('Na⁺'));
+ }finally{await act(()=>root.unmount());globalThis.clearInterval=previousClearInterval;if(previousNavigator)Object.defineProperty(globalThis,'navigator',previousNavigator);else delete globalThis.navigator;}
+});
+
+test('multi-select editor saves the complete key and reopens all authored options',async()=>{
+ const node=document.getElementById('root'),root=createRoot(node);let saved;
+ const card={id:'multi-edit',front:'Selecione as referências',back:'Anterior',revision:4,details:{origin:'Fonte sintética'}};
+ try{await act(()=>root.render(createElement(CardEditor,{card,id:'new',busy:false,pending:false,onSave:async value=>{saved=value;return true;}})));await act(()=>{const select=node.querySelector('[aria-label="Tipo de cartão"]');select.value='multi_select';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ await act(()=>{const input=node.querySelector('[aria-label="Conteúdo do exercício"]');Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(input,'+ -1\n- 1\n+ Na⁺');input.dispatchEvent(new Event('input',{bubbles:true}));});await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ assert.equal(saved.back,'-1\nNa⁺');assert.deepEqual(saved.details.template.choices.map(choice=>choice.correct),[true,false,true]);assert.equal(saved.details.origin,'Fonte sintética');assert.equal(saved.revision,4);
+ await act(()=>root.render(createElement(CardEditor,{key:'multi-reopen',card:saved,id:'new',busy:false,pending:false,onSave:async()=>true})));assert.equal(node.querySelector('[aria-label="Conteúdo do exercício"]').value,'+ -1\n- 1\n+ Na⁺');
+ }finally{await act(()=>root.unmount());}
+});
+
+test('multi-select editor rejects duplicate options and recovers its draft after failed save',async()=>{
+ localStorage.clear();const node=document.getElementById('root');let root=createRoot(node),calls=0;
+ const props={card:{id:'multi-draft',front:'Selecione',back:'A',details:{template:{type:'multi_select',choices:[{text:'A',correct:true},{text:'B',correct:false}]}}},id:'new',deckId:'deck',draftScope:'qa-multi',busy:false,pending:false,onSave:async()=>{calls++;return false;}};
+ const fill=async text=>act(()=>{const input=node.querySelector('[aria-label="Conteúdo do exercício"]');Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));});
+ try{await act(()=>root.render(createElement(CardEditor,props)));await fill('+ A\n- A');await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(calls,0);assert.match(node.querySelector('[role=alert]').textContent,/distintas/);
+ await fill('+ A\n- B\n+ C');await act(async()=>node.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));assert.equal(calls,1);await act(()=>root.unmount());root=createRoot(node);await act(()=>root.render(createElement(CardEditor,props)));await button(node,'Recuperar rascunho');assert.equal(node.querySelector('[aria-label="Conteúdo do exercício"]').value,'+ A\n- B\n+ C');
+ }finally{await act(()=>root.unmount());localStorage.clear();}
+});
+
+for(const selection of [[],[0],[1],[0,1,2],[0,2],[2,0]])test('multi-select exercise requires exactly all correct options: '+JSON.stringify(selection),async()=>{
+ const {default:TemplateQuiz}=await import('../.test-artifacts/app/template-quiz.mjs');const node=document.getElementById('root'),root=createRoot(node);let revealed=false;const results=[];
+ const template={type:'multi_select',choices:[{text:'-1',correct:true},{text:'1',correct:false},{text:'Na⁺',correct:true}]};const render=()=>root.render(createElement(TemplateQuiz,{template,revealed,busy:false,onComplete:value=>{results.push(value);revealed=true;render();}}));
+ try{await act(render);assert.equal(node.querySelector('button').disabled,true);assert.equal(node.querySelector('[role=status]'),null);for(const i of selection)await act(()=>node.querySelectorAll('input[type=checkbox]')[i].click());assert.deepEqual(results,[]);
+ if(!selection.length){assert.equal(node.querySelector('button').disabled,true);return;}await button(node,'Conferir exercício');assert.deepEqual(results,[selection.length===2&&selection.includes(0)&&selection.includes(2)]);assert.ok([...node.querySelectorAll('input')].every(input=>input.matches(':disabled')));assert.match(node.querySelector('[role=status]').textContent,/-1\s+Na⁺/);
+ }finally{await act(()=>root.unmount());}
+});
+
+for(const correctChoice of [true,false])test('REG-MULTI-STUDY-001: mixed quiz saves on advance and keeps current card after failure: '+correctChoice,async()=>{
+ const {default:Lume}=await import('../.test-artifacts/app/lume.mjs');const previousClearInterval=globalThis.clearInterval;globalThis.clearInterval=dom.window.clearInterval.bind(dom.window);const previousNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
+ const node=document.getElementById('root'),root=createRoot(node),requests=[];
+ const state={name:'Prévia local',draftScope:'multi-study',decks:[{id:'multi-deck',title:'Seleção sintética',description:'',color:'green',source:''}],cards:[{id:'m1',deck_id:'multi-deck',front:'Selecione as referências',back:'-1\nNa⁺',revision:0,due:0,interval:0,details:{template:{type:'multi_select',choices:[{text:'-1',correct:true},{text:'1',correct:false},{text:'Na⁺',correct:true}]}}},{id:'q1',deck_id:'multi-deck',front:'Pergunta comum',back:'Resposta comum',revision:0,due:0,interval:0,details:{alternatives:['Alternativa sintética']}}],reviews:[],messages:[],aiReady:false};let failOnce=!correctChoice;
+ globalThis.fetch=async(url,options={})=>{if(String(url).includes('/materials'))return Response.json({notes:[],files:[]});if(options.method==='POST'){requests.push(JSON.parse(options.body));if(failOnce){failOnce=false;return Response.json({error:'Falha sintética'},{status:500});}}return Response.json(state);};
+ try{await act(async()=>root.render(createElement(Lume)));await act(()=>[...node.querySelectorAll('button')].find(b=>b.textContent.includes('Seleção sintética')).click());await button(node,'Quiz de alternativas');assert.equal(node.querySelectorAll('input[type=checkbox]').length,3);
+ await act(()=>node.querySelectorAll('input[type=checkbox]')[0].click());if(correctChoice)await act(()=>node.querySelectorAll('input[type=checkbox]')[2].click());await button(node,'Conferir exercício');assert.equal(requests.length,0);await button(node,'Próximo cartão');if(!correctChoice){assert.equal(node.querySelector('.study .pill').textContent,'1 / 2');await button(node,'Próximo cartão');}assert.equal(requests.at(-1).cardId,'m1');assert.equal(requests.at(-1).rating,correctChoice?'good':'again');assert.equal(node.querySelector('.study .pill').textContent,'2 / 2');assert.equal(node.querySelectorAll('input[type=checkbox]').length,0);assert.match(node.querySelector('.flashcard h2').textContent,/Pergunta comum/);
  }finally{await act(()=>root.unmount());globalThis.clearInterval=previousClearInterval;if(previousNavigator)Object.defineProperty(globalThis,'navigator',previousNavigator);else delete globalThis.navigator;}
 });

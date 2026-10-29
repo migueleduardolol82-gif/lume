@@ -13,7 +13,7 @@ test('true/false release preserves both boolean values and rejects malformed ans
 });
 
 test('release still rejects every other valid advanced template',()=>{
- const pending=[{type:'multi_select',choices:[{text:'A',correct:true},{text:'B',correct:false}]},{type:'order',items:['A','B']},{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]},{type:'image',fileId:'pending',alt:'Imagem'}];
+ const pending=[{type:'order',items:['A','B']},{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]},{type:'image',fileId:'pending',alt:'Imagem'}];
  for(const template of pending){assert.equal(cardDetailsSchema.safeParse({template}).success,true);assert.equal(releaseCardDetailsSchema.safeParse({template}).success,false);}
 });
 
@@ -25,4 +25,15 @@ test('cloze release accepts one to eight blanks and preserves signed, accented a
  for(const amount of [1,8])assert.equal(cardTemplateSchema.safeParse({type:'cloze',text:Array.from({length:amount},(_,i)=>'{{'+i+'}}').join(' ')}).success,true);
  for(const text of ['Sem lacuna','{{ }}','{{a\nb}}','{{{a}}}','{{a}} texto {{','{{a}} texto }}',Array(9).fill('{{a}}').join(' ')])assert.equal(cardTemplateSchema.safeParse({type:'cloze',text}).success,false,text);
  assert.equal(templateReference(template),'Íon Na⁺ e carga -1.');assert.equal(clozeParts(template.text).filter(part=>part.answer!==undefined).length,2);
+});
+
+test('multi-select release accepts two to eight distinct options with a mixed answer key',()=>{
+ const template={type:'multi_select' as const,choices:[{text:'-1',correct:true},{text:'1',correct:false},{text:'Na⁺',correct:true}]};assert.deepEqual(releaseCardDetailsSchema.parse({template}).template,template);
+ assert.equal(evaluateTemplate(template,['2','0']),true);for(const answer of [[],['0'],['0','1','2'],['0','0','2'],['0','9']])assert.equal(evaluateTemplate(template,answer),false);
+ assert.equal(templateReference(template),'-1\nNa⁺');
+ for(const length of [2,8])assert.equal(cardTemplateSchema.safeParse({type:'multi_select',choices:Array.from({length},(_,i)=>({text:String(i),correct:i===0}))}).success,true);
+});
+test('REG-MULTI-ROUNDTRIP-001: multi-select rejects duplicate, multiline or unpersistable options',()=>{
+ const valid={type:'multi_select',choices:[{text:'A',correct:true},{text:'B',correct:false}]};
+ for(const choices of [[{text:'A',correct:true}],[{text:'A',correct:true},{text:'A',correct:false}],[{text:'ação',correct:true},{text:'ac\u0327a\u0303o',correct:false}],[{text:'A',correct:true},{text:'B',correct:true}],[{text:'A',correct:false},{text:'B',correct:false}],[{text:'A\nB',correct:true},{text:'C',correct:false}],[{text:'A\rB',correct:true},{text:'C',correct:false}],Array.from({length:9},(_,i)=>({text:String(i),correct:i===0})),Array.from({length:8},(_,i)=>({text:String(i).repeat(1000),correct:i<7}))])assert.equal(cardTemplateSchema.safeParse({...valid,choices}).success,false,JSON.stringify(choices).slice(0,150));
 });
