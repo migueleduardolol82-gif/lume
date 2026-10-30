@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {Pool} from 'pg';
 const base='http://127.0.0.1:5173/api/lume',path='/materials/files';
 const deckId=crypto.randomUUID(),title='QA arquivos '+deckId,description='Fixture temporária de arquivo persistente.';
 const files=new Set();
+const linkedCardId=crypto.randomUUID();
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function call(endpoint,body,method=body===undefined?'GET':'POST'){
  const response=await fetch(base+endpoint,{method,redirect:'error',headers:body===undefined?{}:{'Content-Type':method==='PUT'?'application/octet-stream':'application/json'},body:body===undefined?undefined:method==='PUT'?body:JSON.stringify(body),signal:AbortSignal.timeout(45000)});
@@ -48,6 +50,21 @@ try{
  assert.equal((await part(imageId,0,imageBytes)).status,200);await ok(path,{action:'complete',id:imageId,deckId});
  const inline=await fetch(base+path+'?id='+encodeURIComponent(imageId)+'&view=inline',{redirect:'error',signal:AbortSignal.timeout(45000)});
  assert.equal(inline.status,200);assert.equal(inline.headers.get('content-type'),'image/png');assert.match(inline.headers.get('content-disposition')||'',/^inline;/);assert.equal(inline.headers.get('cache-control'),'private, no-store');assert.equal(digest(Buffer.from(await inline.arrayBuffer())),digest(imageBytes));
+ if(process.env.CI==='true'){
+  // Seed a legacy image only in the disposable CI DB while authoring is gated.
+  const dbUrl=new URL(process.env.DATABASE_URL||'file:///missing');
+  assert.equal(process.platform,'linux');assert.equal(dbUrl.hostname,'localhost');assert.equal(dbUrl.pathname,'/lume_test');assert.equal(dbUrl.username,'lume_test');assert.equal(dbUrl.searchParams.get('sslmode'),'verify-full');assert.ok(dbUrl.searchParams.get('sslrootcert'));
+  const before=await state();assert.equal(before.draftScope,'local-test');assert.equal(before.decks.find(d=>d.id===deckId)?.title,title);
+  await ok('',{action:'saveCards',deckId,cards:[{id:linkedCardId,front:'Diagrama sintético',back:'Resposta sintética'}]});
+  const pool=new Pool({connectionString:dbUrl.toString(),max:1,connectionTimeoutMillis:10000});
+  try{const result=await pool.query('UPDATE cards SET details=$1::jsonb WHERE id=$2 AND owner=$3 AND deck_id=$4',[JSON.stringify({template:{type:'image',fileId:imageId,alt:'Diagrama sintético'}}),linkedCardId,'local-test',deckId]);assert.equal(result.rowCount,1);}finally{await pool.end();}
+  const stored=(await state()).cards.find(c=>c.id===linkedCardId);assert.equal(stored.details.template.fileId,imageId);
+  assert.equal((await call(path,{action:'delete',id:imageId,deckId})).status,409);
+  await ok('',{action:'editCard',deckId,revision:stored.revision,card:{id:linkedCardId,front:'Diagrama sintético editado',back:stored.back}});
+  const current=(await state()).cards.find(c=>c.id===linkedCardId);assert.equal(current.details.template.fileId,imageId);
+  await ok('',{action:'editCard',deckId,revision:current.revision,card:{id:linkedCardId,front:current.front,back:current.back,details:{}}});
+  console.log('PASS: imagem legada validada em PostgreSQL; exclusão em uso bloqueada e desvinculação explícita preserva o cartão.');
+ }
  await ok(path,{action:'delete',id:imageId,deckId});files.delete(imageId);assert.equal((await call(path+'?id='+encodeURIComponent(imageId)+'&view=inline')).status,404);
  console.log('PASS: imagem PNG inline autenticada com bytes preservados; envio incompleto, PDF inline e imagem removida rejeitados.');
  const manifests=await ok('/materials?deckId='+encodeURIComponent(deckId));assert.equal(manifests.files.filter(f=>f.id===id).length,1);
@@ -56,6 +73,7 @@ try{
 }finally{
  if(created){
   const snapshot=await state(),deck=snapshot.decks.find(d=>d.id===deckId);assert.equal(deck?.title,title);assert.equal(deck?.description,description);
+  await ok('',{action:'deleteCard',deckId,cardId:linkedCardId});
   for(const id of files){const deleted=await call(path,{action:'delete',id,deckId});assert.ok([200,404].includes(deleted.status));}
   await ok('',{action:'deleteDeck',deckId});assert.equal((await state()).decks.some(d=>d.id===deckId),false);
   console.log('Fixtures de arquivos removidas por IDs conhecidos.');

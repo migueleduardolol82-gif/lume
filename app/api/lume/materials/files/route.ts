@@ -26,7 +26,10 @@ export async function POST(request:Request){try{
    const inserted=await tx.prepare("INSERT INTO material_files(id,owner,deck_id,name,type,bytes,status,created) VALUES (?,?,?,?,?,?,'uploading',?) ON CONFLICT DO NOTHING").bind(a.id,owner,a.deckId,a.name,a.type,a.bytes,Date.now()).run();if(!inserted.meta.changes)throw new AppError('Identificador indisponível.',409);return {file:{id:a.id,status:'uploading'}};
   }
   if(!file)throw new AppError('Arquivo não encontrado.',404);
-  if(a.action==='delete'){await tx.prepare('DELETE FROM material_files WHERE id=? AND owner=?').bind(a.id,owner).run();return {deleted:true};}
+  if(a.action==='delete'){
+   if(await tx.prepare("SELECT id FROM cards WHERE owner=? AND details->'template'->>'type'='image' AND details->'template'->>'fileId'=? LIMIT 1").bind(owner,a.id).first())throw new AppError('Esta imagem está em uso por um cartão. Edite ou remova o cartão antes de excluir o arquivo.',409);
+   await tx.prepare('DELETE FROM material_files WHERE id=? AND owner=?').bind(a.id,owner).run();return {deleted:true};
+  }
   if(file.status==='ready')return {file};
   const chunks=await tx.prepare('SELECT part,bytes,data FROM material_file_chunks WHERE file_id=? ORDER BY part').bind(a.id).all<{part:number;bytes:number;data:Buffer}>();
   if(chunks.results.length!==Math.ceil(file.bytes/FILE_LIMITS.chunk)||chunks.results.some((part,index)=>part.part!==index)||chunks.results.reduce((sum,part)=>sum+part.bytes,0)!==file.bytes)throw new AppError('O envio está incompleto. Envie novamente as partes que faltam.',409);

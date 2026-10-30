@@ -30,7 +30,7 @@ try{
   console.log(`Testes offline: ${files.length} arquivos. Sem API real, banco ou rede.`);
   await run(['--experimental-transform-types','--test',...files],{offline:true});
   await run(['scripts/compile-ui-tests.mjs']);
-  await run(['--test','tests/workspace-ui.mjs','tests/material-library-ui.mjs','tests/api-card-contract.mjs','tests/image-file-contract.mjs'],{offline:true});
+  await run(['--test','tests/workspace-ui.mjs','tests/material-library-ui.mjs','tests/api-card-contract.mjs','tests/image-file-contract.mjs','tests/image-card-contract.mjs'],{offline:true});
   if(mode==='regression')await run(['node_modules/typescript/bin/tsc','--noEmit'],{offline:true});
  }else{
   await localIdentity();
