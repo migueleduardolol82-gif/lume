@@ -13,7 +13,7 @@ test('true/false release preserves both boolean values and rejects malformed ans
 });
 
 test('release still rejects every other valid advanced template',()=>{
- const pending=[{type:'order',items:['A','B']},{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]},{type:'image',fileId:'pending',alt:'Imagem'}];
+ const pending=[{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]},{type:'image',fileId:'pending',alt:'Imagem'}];
  for(const template of pending){assert.equal(cardDetailsSchema.safeParse({template}).success,true);assert.equal(releaseCardDetailsSchema.safeParse({template}).success,false);}
 });
 
@@ -36,4 +36,12 @@ test('multi-select release accepts two to eight distinct options with a mixed an
 test('REG-MULTI-ROUNDTRIP-001: multi-select rejects duplicate, multiline or unpersistable options',()=>{
  const valid={type:'multi_select',choices:[{text:'A',correct:true},{text:'B',correct:false}]};
  for(const choices of [[{text:'A',correct:true}],[{text:'A',correct:true},{text:'A',correct:false}],[{text:'ação',correct:true},{text:'ac\u0327a\u0303o',correct:false}],[{text:'A',correct:true},{text:'B',correct:true}],[{text:'A',correct:false},{text:'B',correct:false}],[{text:'A\nB',correct:true},{text:'C',correct:false}],[{text:'A\rB',correct:true},{text:'C',correct:false}],Array.from({length:9},(_,i)=>({text:String(i),correct:i===0})),Array.from({length:8},(_,i)=>({text:String(i).repeat(1000),correct:i<7}))])assert.equal(cardTemplateSchema.safeParse({...valid,choices}).success,false,JSON.stringify(choices).slice(0,150));
+});
+
+test('order release accepts two to eight distinct authored items and checks the exact permutation',()=>{
+ const template={type:'order' as const,items:['-1','0','Na⁺']};assert.deepEqual(releaseCardDetailsSchema.parse({template}).template,template);assert.equal(evaluateTemplate(template,['0','1','2']),true);for(const answer of [[],['0','1'],['0','0','2'],['2','1','0'],[0,1,2],['0','1','9']])assert.equal(evaluateTemplate(template,answer),false);assert.equal(templateReference(template),'1. -1\n2. 0\n3. Na⁺');
+ for(const amount of [2,8])assert.equal(cardTemplateSchema.safeParse({type:'order',items:Array.from({length:amount},(_,i)=>String(i))}).success,true);
+});
+test('REG-ORDER-ROUNDTRIP-001: order rejects multiline, duplicate and oversized authored keys',()=>{
+ for(const items of [['A'],['A','A'],['ação','ac\u0327a\u0303o'],['A\nB','C'],['A\rB','C'],Array.from({length:9},(_,i)=>String(i)),Array.from({length:8},(_,i)=>String(i).repeat(1000))])assert.equal(cardTemplateSchema.safeParse({type:'order',items}).success,false);
 });

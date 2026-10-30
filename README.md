@@ -45,3 +45,5 @@ Nesta branch, verdadeiro/falso está implementado e validado com PostgreSQL real
 O incremento `codex/cloze` acrescenta cartões de preencher lacunas (`{{resposta}}`), com uma a oito respostas, editor, recuperação de rascunhos, quiz e gabarito consistente na API/backup. Ele depende da entrega de verdadeiro/falso e tem validação própria no CI antes de publicação.
 
 O incremento `codex/multi-select` acrescenta múltipla seleção: duas a oito opções distintas, gabarito completo e revisão somente após conferência. No editor, use `+ ` para opções corretas e `- ` para incorretas, uma por linha. A geração por IA mantém o formato pergunta/resposta atual.
+
+O incremento `codex/order-items` acrescenta ordenar itens: escreva de dois a oito itens distintos, um por linha, na sequência correta. O quiz embaralha os itens e oferece botões Subir/Descer antes da conferência. Publicação depende da validação do incremento.
