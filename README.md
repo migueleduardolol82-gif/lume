@@ -47,3 +47,5 @@ O incremento `codex/cloze` acrescenta cartões de preencher lacunas (`{{resposta
 O incremento `codex/multi-select` acrescenta múltipla seleção: duas a oito opções distintas, gabarito completo e revisão somente após conferência. No editor, use `+ ` para opções corretas e `- ` para incorretas, uma por linha. A geração por IA mantém o formato pergunta/resposta atual.
 
 O incremento `codex/order-items` acrescenta ordenar itens: escreva de dois a oito itens distintos, um por linha, na sequência correta. O quiz embaralha os itens e oferece botões Subir/Descer antes da conferência. Publicação depende da validação do incremento.
+
+O incremento `codex/match-pairs` acrescenta associar pares: use `termo => correspondência`, um par por linha, de dois a oito pares com lados distintos. O quiz embaralha as opções e impede repetir uma correspondência para dois termos. A IA mantém o formato de geração pergunta/resposta atual.
