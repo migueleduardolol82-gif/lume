@@ -61,3 +61,7 @@ test('multi-select-only quiz starts and authored keys never become ordinary dist
 test('order-only quiz starts without its numbered key leaking into ordinary distractors',()=>{
  const card={id:'o',front:'Ordene',back:'1. A\n2. B',details:{template:{type:'order'}}};assert.equal(canBuildChoiceQuiz([card]),true);const result=buildChoiceQuestions([card,{id:'a',front:'A',back:'Paris'},{id:'b',front:'B',back:'Londres'}]);assert.deepEqual(result.map(question=>question.cardId),['o','a','b']);assert.deepEqual(result[0].options,[]);assert.deepEqual(new Set(result[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
 });
+
+test('matching-only quiz starts and mapping keys do not become ordinary distractors',()=>{
+ const card={id:'m',front:'Associe',back:'A → 1\nB → 2',details:{template:{type:'match'}}};assert.equal(canBuildChoiceQuiz([card]),true);const result=buildChoiceQuestions([card,{id:'a',front:'A',back:'Paris'},{id:'b',front:'B',back:'Londres'}]);assert.deepEqual(result.map(question=>question.cardId),['m','a','b']);assert.deepEqual(result[0].options,[]);assert.deepEqual(new Set(result[1].options.map(option=>option.text)),new Set(['Paris','Londres']));
+});

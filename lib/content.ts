@@ -5,7 +5,7 @@ export const cardDetailsSchema=z.object({origin:z.string().trim().max(200).optio
 export type CardDetails=z.infer<typeof cardDetailsSchema>;
 export function isCardAnswerConsistent(card:{back:string;details?:CardDetails}):boolean{
  const template=card.details?.template;
- return !template||!['true_false','cloze','multi_select','order'].includes(template.type)||card.back===templateReference(template);
+ return !template||!['true_false','cloze','multi_select','order','match'].includes(template.type)||card.back===templateReference(template);
 }
 // Read schema preserves work in progress; write/restore schema prevents incomplete features entering the release.
 export const releaseCardDetailsSchema=cardDetailsSchema.refine(details=>!details.template||isReleasedCardType(details.template.type),{message:'Este tipo de cartão ainda está em preparação. Use um dos tipos de cartão disponíveis no editor nesta versão.'});

@@ -13,7 +13,7 @@ test('true/false release preserves both boolean values and rejects malformed ans
 });
 
 test('release still rejects every other valid advanced template',()=>{
- const pending=[{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]},{type:'image',fileId:'pending',alt:'Imagem'}];
+ const pending=[{type:'image',fileId:'pending',alt:'Imagem'}];
  for(const template of pending){assert.equal(cardDetailsSchema.safeParse({template}).success,true);assert.equal(releaseCardDetailsSchema.safeParse({template}).success,false);}
 });
 
@@ -44,4 +44,12 @@ test('order release accepts two to eight distinct authored items and checks the 
 });
 test('REG-ORDER-ROUNDTRIP-001: order rejects multiline, duplicate and oversized authored keys',()=>{
  for(const items of [['A'],['A','A'],['ação','ac\u0327a\u0303o'],['A\nB','C'],['A\rB','C'],Array.from({length:9},(_,i)=>String(i)),Array.from({length:8},(_,i)=>String(i).repeat(1000))])assert.equal(cardTemplateSchema.safeParse({type:'order',items}).success,false);
+});
+
+test('match release preserves two to eight distinct authored correspondences and exact scientific labels',()=>{
+ const template={type:'match' as const,pairs:[{left:'Na⁺',right:'positivo'},{left:'Cl⁻',right:'negativo'}]};assert.deepEqual(releaseCardDetailsSchema.parse({template}).template,template);assert.equal(evaluateTemplate(template,['0','1']),true);for(const answer of [[],['0'],['1','0'],['0','0'],['0','2'],[0,1]])assert.equal(evaluateTemplate(template,answer),false);assert.equal(templateReference(template),'Na⁺ → positivo\nCl⁻ → negativo');for(const amount of [2,8])assert.equal(cardTemplateSchema.safeParse({type:'match',pairs:Array.from({length:amount},(_,i)=>({left:String(i),right:String(i+10)}))}).success,true);
+});
+test('REG-MATCH-ROUNDTRIP-001: duplicate, multiline, ambiguous delimiter and oversized pairs are rejected',()=>{
+ const pair=(left:string,right:string)=>({left,right});
+ for(const pairs of [[pair('A','1')],[pair('A','1'),pair('A','2')],[pair('A','1'),pair('B','1')],[pair('ação','1'),pair('ac\u0327a\u0303o','2')],[pair('A\nB','1'),pair('C','2')],[pair('A','1\r2'),pair('B','3')],[pair('A=>B','1'),pair('C','2')],[pair('A','1=>2'),pair('B','3')],Array.from({length:9},(_,i)=>pair(String(i),String(i+10))),Array.from({length:4},(_,i)=>pair(String(i).repeat(1000),String(i+10).repeat(500)))])assert.equal(cardTemplateSchema.safeParse({type:'match',pairs}).success,false);
 });

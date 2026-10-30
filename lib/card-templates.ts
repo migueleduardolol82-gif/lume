@@ -16,6 +16,7 @@ export const cardTemplateSchema=z.discriminatedUnion('type',[
  if(value.type==='order'&&!unique(value.items))fail('Os itens de ordenação devem ser distintos.');
  if(value.type==='order'&&(value.items.some(item=>/[\r\n]/u.test(item))||templateReference(value).length>6000))fail('Use uma linha por item e um gabarito de até 6000 caracteres.');
  if(value.type==='match'&&(!unique(value.pairs.map(p=>p.left))||!unique(value.pairs.map(p=>p.right))))fail('Use termos e correspondências distintos.');
+ if(value.type==='match'&&(value.pairs.some(pair=>/[\r\n]|=>/u.test(pair.left)||/[\r\n]|=>/u.test(pair.right))||templateReference(value).length>6000))fail('Use um par por linha, sem => nos termos, e um gabarito de até 6000 caracteres.');
  if(value.type==='cloze'){const blanks=clozeParts(value.text).filter(p=>p.answer!==undefined);if(!blanks.length||blanks.length>8||/\{\{\{|\}\}\}/u.test(value.text)||value.text.replace(/\{\{[^{}\n]+\}\}/gu,'').match(/\{\{|\}\}/u)||blanks.some(p=>!p.answer?.trim()||p.answer.length>1000))fail('Marque de uma a oito lacunas com {{resposta}}, sem chaves aninhadas.');}
 });
 export type CardTemplate=z.infer<typeof cardTemplateSchema>;

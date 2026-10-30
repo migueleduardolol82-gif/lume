@@ -69,3 +69,11 @@ test('REG-ORDER-API-001: conflicting key, duplicate items and legacy contradicti
 test('legacy order import preserves the authored sequence',async()=>{
  reset();assert.equal((await post({action:'importBackup',decks:[{title:'Ordem',cards:[orderCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,orderCard.details);
 });
+
+const matchCard={id:'match',front:'Associe',back:'A → 1\nB → 2',revision:2,details:{template:{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'2'}]}}};
+test('REG-MATCH-API-001: contradictory back, repeated correspondence and legacy contradiction cannot be written',async()=>{
+ for(const card of [{...matchCard,back:'A → 2\nB → 1'},{...matchCard,details:{template:{type:'match',pairs:[{left:'A',right:'1'},{left:'B',right:'1'}]}}}]){reset();assert.equal((await post({action:'saveCards',deckId:'deck',cards:[card]})).status,400);assert.equal(fixture.writes.length,0);}reset(matchCard);assert.equal((await post({action:'editCard',deckId:'deck',revision:2,card:{id:'match',front:'Associe',back:'A → 2\nB → 1'}})).status,400);assert.equal(fixture.writes.length,0);
+});
+test('legacy matching import preserves each authored correspondence',async()=>{
+ reset();assert.equal((await post({action:'importBackup',decks:[{title:'Pares',cards:[matchCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,matchCard.details);
+});

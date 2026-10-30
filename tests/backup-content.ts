@@ -113,3 +113,7 @@ test('multi-select backup preserves mixed key, source and progress and rejects c
 test('ordered backup preserves authored item order and progress and rejects contradictory back',()=>{
  const input=fixture();input.decks[0].cards[0].back='1. -1\n2. 0\n3. Na⁺';Object.assign(input.decks[0].cards[0].details,{template:{type:'order',items:['-1','0','Na⁺']}});const result=restore(input);assert.deepEqual(result.cards[0].details,input.decks[0].cards[0].details);assert.equal(result.cards[0].due,5000);assert.equal(result.cards[0].interval,3);input.decks[0].cards[0].back='1. 0\n2. -1\n3. Na⁺';assert.throws(()=>restore(input));
 });
+
+test('matching backup preserves every authored pair and progress and rejects conflicting key',()=>{
+ const input=fixture();input.decks[0].cards[0].back='Na⁺ → positivo\nCl⁻ → negativo';Object.assign(input.decks[0].cards[0].details,{template:{type:'match',pairs:[{left:'Na⁺',right:'positivo'},{left:'Cl⁻',right:'negativo'}]}});const result=restore(input);assert.deepEqual(result.cards[0].details,input.decks[0].cards[0].details);assert.equal(result.cards[0].due,5000);assert.equal(result.cards[0].interval,3);input.decks[0].cards[0].back='Na⁺ → negativo\nCl⁻ → positivo';assert.throws(()=>restore(input));
+});

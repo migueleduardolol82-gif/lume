@@ -34,7 +34,7 @@ try{
   if(mode==='regression')await run(['node_modules/typescript/bin/tsc','--noEmit'],{offline:true});
  }else{
   await localIdentity();
-  const files=mode==='integration'?['reliability-api.mjs','deck-edit-api.mjs','backup-api.mjs','content-import-api.mjs','subdecks-api.mjs','content-api.mjs','files-api.mjs','true-false-api.mjs','cloze-api.mjs','multi-select-api.mjs','order-api.mjs']:mode==='quality-ai'?['quality-live-ai.mjs','tutor-live-ai.mjs']:['api.mjs','large-pdf-api.mjs'];
+  const files=mode==='integration'?['reliability-api.mjs','deck-edit-api.mjs','backup-api.mjs','content-import-api.mjs','subdecks-api.mjs','content-api.mjs','files-api.mjs','true-false-api.mjs','cloze-api.mjs','multi-select-api.mjs','order-api.mjs','match-api.mjs']:mode==='quality-ai'?['quality-live-ai.mjs','tutor-live-ai.mjs']:['api.mjs','large-pdf-api.mjs'];
   console.log(mode==='live-ai'?'Testes explícitos com IA real: podem consumir créditos e enviar PDF sintético de 50 MB.':mode==='quality-ai'?'Avaliação explícita de qualidade com IA real: duas fontes sintéticas; pode consumir créditos.':'Integração local: dados temporários identificados, sem geração de IA.');
   for(const file of files){await localIdentity();await run(['--experimental-transform-types','tests/'+file]);}
  }
