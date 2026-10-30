@@ -61,3 +61,11 @@ test('REG-MULTI-API-001: invalid key, duplicate options and legacy contradiction
 test('multi-select legacy import preserves every option and the mixed key',async()=>{
  reset();assert.equal((await post({action:'importBackup',decks:[{title:'Seleção',cards:[multiCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,multiCard.details);
 });
+
+const orderCard={id:'order',front:'Ordene',back:'1. A\n2. B',revision:2,details:{template:{type:'order',items:['A','B']}}};
+test('REG-ORDER-API-001: conflicting key, duplicate items and legacy contradiction are rejected before writes',async()=>{
+ for(const card of [{...orderCard,back:'1. B\n2. A'},{...orderCard,details:{template:{type:'order',items:['A','A']}}}]){reset();assert.equal((await post({action:'saveCards',deckId:'deck',cards:[card]})).status,400);assert.equal(fixture.writes.length,0);}reset(orderCard);assert.equal((await post({action:'editCard',deckId:'deck',revision:2,card:{id:'order',front:'Ordene',back:'1. B\n2. A'}})).status,400);assert.equal(fixture.writes.length,0);
+});
+test('legacy order import preserves the authored sequence',async()=>{
+ reset();assert.equal((await post({action:'importBackup',decks:[{title:'Ordem',cards:[orderCard]}]})).status,200);const insert=fixture.writes.find(write=>write.sql.startsWith('INSERT INTO cards'));assert.deepEqual(JSON.parse(insert.values.at(-1))[0].details,orderCard.details);
+});
