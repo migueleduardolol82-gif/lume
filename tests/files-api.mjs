@@ -41,6 +41,15 @@ try{
  const downloaded=await fetch(base+path+'?id='+encodeURIComponent(id),{redirect:'error',signal:AbortSignal.timeout(45000)});
  assert.equal(downloaded.status,200);assert.equal(downloaded.headers.get('x-content-type-options'),'nosniff');assert.match(downloaded.headers.get('content-disposition')||'',/^attachment;/);
  const body=Buffer.from(await downloaded.arrayBuffer());assert.equal(body.length,bytes.length);assert.equal(digest(body),digest(bytes));
+ assert.equal((await call(path+'?id='+encodeURIComponent(id)+'&view=inline')).status,400);
+ const imageId=crypto.randomUUID(),imageBytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jGZkAAAAASUVORK5CYII=','base64');
+ assert.equal((await start(imageId,imageBytes.length,'fixture.png','image/png')).status,200);
+ assert.equal((await call(path+'?id='+encodeURIComponent(imageId)+'&view=inline')).status,404);
+ assert.equal((await part(imageId,0,imageBytes)).status,200);await ok(path,{action:'complete',id:imageId,deckId});
+ const inline=await fetch(base+path+'?id='+encodeURIComponent(imageId)+'&view=inline',{redirect:'error',signal:AbortSignal.timeout(45000)});
+ assert.equal(inline.status,200);assert.equal(inline.headers.get('content-type'),'image/png');assert.match(inline.headers.get('content-disposition')||'',/^inline;/);assert.equal(inline.headers.get('cache-control'),'private, no-store');assert.equal(digest(Buffer.from(await inline.arrayBuffer())),digest(imageBytes));
+ await ok(path,{action:'delete',id:imageId,deckId});files.delete(imageId);assert.equal((await call(path+'?id='+encodeURIComponent(imageId)+'&view=inline')).status,404);
+ console.log('PASS: imagem PNG inline autenticada com bytes preservados; envio incompleto, PDF inline e imagem removida rejeitados.');
  const manifests=await ok('/materials?deckId='+encodeURIComponent(deckId));assert.equal(manifests.files.filter(f=>f.id===id).length,1);
  await ok(path,{action:'delete',id,deckId});files.delete(id);assert.equal((await call(path+'?id='+encodeURIComponent(id))).status,404);
  console.log('PASS: PDF pequeno persistido e baixado com hash idêntico; reenvio idempotente, conflitos, partes inválidas, envio incompleto e exclusão verificados.');

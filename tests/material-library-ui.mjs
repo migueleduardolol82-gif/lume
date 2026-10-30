@@ -9,10 +9,22 @@ const {createElement,act}=await import('react'),{createRoot}=await import('react
 const {default:Library}=await import('../.test-artifacts/app/material-library.mjs');
 const {default:DeckMaterials}=await import('../.test-artifacts/app/deck-materials.mjs');
 const {default:CardEditor}=await import('../.test-artifacts/app/card-editor.mjs');
+const {default:StudyImage}=await import('../.test-artifacts/app/study-image.mjs');
 const {default:GenerateCards}=await import('../.test-artifacts/app/generate-cards.mjs');
 const {draftKey}=await import('../.test-artifacts/lib/drafts.mjs');
 const {uploadMaterialFile}=await import('../.test-artifacts/lib/material-files.mjs');
 const notes=[{id:'a',deck_id:'deck',title:'Nota A',content:'Original A',revision:0,created:0,updated:0},{id:'b',deck_id:'deck',title:'Nota B',content:'Original B',revision:0,created:0,updated:0}];
+test('REG-IMAGE-UI-001: failed image offers recovery and a retry with the original accessible description',async()=>{
+ const node=document.getElementById('root'),root=createRoot(node);
+ try{
+  await act(()=>root.render(createElement(StudyImage,{fileId:'image /1',alt:'Diagrama da célula'})));
+  const original=node.querySelector('img');assert.equal(original.alt,'Diagrama da célula');assert.match(original.getAttribute('src'),/id=image%20%2F1&view=inline/);
+  await act(()=>original.dispatchEvent(new Event('error')));
+  assert.match(node.querySelector('[role="status"]').textContent,/Não foi possível carregar/);
+  assert.match(node.textContent,/Materiais/);assert.equal(node.querySelector('img'),null);
+  await button(node,'Tentar carregar novamente');assert.equal(node.querySelector('img').alt,'Diagrama da célula');assert.equal(node.querySelector('[role="status"]'),null);
+ }finally{await act(()=>root.unmount());}
+});
 async function fixture(run){let historyCalls=0;globalThis.fetch=async url=>{if(String(url).includes('&id=')){historyCalls++;return Response.json({versions:[{revision:0,title:'Nota B',content:'Original B',created:0}]});}return Response.json({notes,files:[]});};const node=document.getElementById('root'),root=createRoot(node);try{await act(async()=>{root.render(createElement(Library,{deckId:'deck',busy:false}));});await run(node,()=>historyCalls);}finally{await act(()=>root.unmount());}}
 async function button(node,text,index=0){const candidates=[...node.querySelectorAll('button')].filter(b=>b.textContent.trim()===text);assert.ok(candidates[index]);await act(async()=>{candidates[index].click();});}
 async function edit(node){await button(node,'Editar');const input=node.querySelector('textarea');await act(()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value').set.call(input,'Rascunho não salvo');input.dispatchEvent(new Event('input',{bubbles:true}));});}

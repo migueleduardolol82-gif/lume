@@ -75,6 +75,10 @@ export async function POST(request: Request) {
      if(a.revision!==undefined&&a.revision!==current.revision)throw new AppError("Este cartão mudou em outro acesso. Atualize antes de salvar.",409);
      const details={...(a.card.details??current.details??{})};
      if(!isCardAnswerConsistent({back:a.card.back,details}))throw new AppError('A resposta deve corresponder ao gabarito do exercício.');
+     if(details.template?.type==='image'){
+      const file=await tx.prepare('SELECT * FROM material_files WHERE id=? AND owner=? AND deck_id=? FOR SHARE').bind(details.template.fileId,owner,a.deckId).first<{type:string;status:string}>();
+      if(!file||file.status!=='ready'||!['image/png','image/jpeg','image/webp'].includes(file.type))throw new AppError('Imagem indisponível neste baralho. Escolha uma imagem pronta dos seus materiais.');
+     }
      if(details.materialId&&!await tx.prepare("SELECT id FROM materials WHERE id=? AND owner=? AND deck_id=?").bind(details.materialId,owner,a.deckId).first())throw new AppError("Nota de origem não encontrada neste baralho.",400);
      if((current.front!==a.card.front||current.back!==a.card.back)&&details.evidence)details.evidenceStatus='needs_review';
      await tx.prepare("UPDATE cards SET front=?,back=?,details=?::jsonb,revision=revision+1 WHERE id=? AND deck_id=? AND owner=?").bind(a.card.front,a.card.back,JSON.stringify(details),a.card.id,a.deckId,owner).run();
