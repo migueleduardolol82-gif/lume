@@ -4,7 +4,7 @@ import { schedule } from "../../../lib/study";
 import { ai, AppError } from "../../../lib/ai";
 import { z } from "zod";
 import {readTicket} from "../../../lib/upload-ticket";
-import {releaseCardDetailsSchema,isCardAnswerConsistent} from '../../../lib/content';
+import {releaseCardDetailsSchema,isCardAnswerConsistent,type CardDetails} from '../../../lib/content';
 import {buildTutorContext,buildTutorPrompt} from '../../../lib/tutor-context';
 import {buildCardGenerationPrompt,assessGeneratedCards} from "../../../lib/card-quality";
 export const dynamic = "force-dynamic";
@@ -27,6 +27,11 @@ const actions = z.discriminatedUnion("action", [
   z.object({ action: z.literal("importBackup"), decks: z.array(z.object({ title: z.string().trim().min(1).max(120), description: z.string().max(500).default(""), color: colors.default("violet"), cards: z.array(cardInputBase.omit({ id: true }).refine(isCardAnswerConsistent)).max(900) })).max(30) }),
 ]);
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+async function validateCardImage(tx:Database,owner:string,deckId:string,details?:CardDetails){
+ if(details?.template?.type!=='image')return;
+ const file=await tx.prepare('SELECT * FROM material_files WHERE id=? AND owner=? AND deck_id=? FOR SHARE').bind(details.template.fileId,owner,deckId).first<{type:string;status:string}>();
+ if(!file||file.status!=='ready'||!['image/png','image/jpeg','image/webp'].includes(file.type))throw new AppError('Imagem indisponível neste baralho. Escolha uma imagem pronta dos seus materiais.');
+}
 async function context() { const user = await getOwner(); if (!user) throw new AppError("Entre com sua conta para acessar seus estudos.", 401); if (!process.env.DATABASE_URL) throw new AppError("Banco de estudos indisponível.", 503); return { user, db }; }
 async function state(owner: string, db: Database, name: string) {
   const [d,c,r,m] = await Promise.all([db.prepare("SELECT * FROM decks WHERE owner=? ORDER BY created DESC").bind(owner).all(), db.prepare("SELECT * FROM cards WHERE owner=? ORDER BY id").bind(owner).all(), db.prepare("SELECT * FROM reviews WHERE owner=? ORDER BY created DESC LIMIT 3000").bind(owner).all(), db.prepare("SELECT recent.*,COALESCE(r.references_data,'[]'::jsonb) AS references_data FROM (SELECT * FROM messages WHERE owner=? ORDER BY created DESC,id DESC LIMIT 1000) recent LEFT JOIN message_references r ON r.message_id=recent.id ORDER BY recent.created,recent.id").bind(owner).all()]);
@@ -63,6 +68,7 @@ export async function POST(request: Request) {
    else if(a.action==="saveCards"){
     await db.transaction(async tx=>{
      const current=await tx.prepare("SELECT source FROM decks WHERE id=? AND owner=? FOR UPDATE").bind(a.deckId,owner).first<{source:string}>();if(!current)throw new AppError("Baralho removido.",404);
+     for(const card of a.cards)await validateCardImage(tx,owner,a.deckId,card.details);
      if(a.source!==undefined){if(current.source&&current.source!==a.source&&current.source!==a.expectedSource)throw new AppError("O material de referência mudou. Atualize antes de salvar este lote.",409);await tx.prepare("UPDATE decks SET source=? WHERE id=? AND owner=?").bind(a.source,a.deckId,owner).run();}
      for(const materialId of new Set(a.cards.map(c=>c.details?.materialId).filter(Boolean)))if(!await tx.prepare("SELECT id FROM materials WHERE id=? AND owner=? AND deck_id=?").bind(materialId,owner,a.deckId).first())throw new AppError("Nota de origem não encontrada neste baralho.",400);
      await tx.prepare("INSERT INTO cards (id,owner,deck_id,front,back,due,interval,repetitions,revision,details) SELECT x.id,?,?,x.front,x.back,?,0,0,0,COALESCE(x.details,'{}'::jsonb) FROM jsonb_to_recordset(?::jsonb) AS x(id text,front text,back text,details jsonb) ON CONFLICT DO NOTHING").bind(owner,a.deckId,now,JSON.stringify(a.cards)).run();
@@ -75,6 +81,7 @@ export async function POST(request: Request) {
      if(a.revision!==undefined&&a.revision!==current.revision)throw new AppError("Este cartão mudou em outro acesso. Atualize antes de salvar.",409);
      const details={...(a.card.details??current.details??{})};
      if(!isCardAnswerConsistent({back:a.card.back,details}))throw new AppError('A resposta deve corresponder ao gabarito do exercício.');
+     await validateCardImage(tx,owner,a.deckId,details);
      if(details.materialId&&!await tx.prepare("SELECT id FROM materials WHERE id=? AND owner=? AND deck_id=?").bind(details.materialId,owner,a.deckId).first())throw new AppError("Nota de origem não encontrada neste baralho.",400);
      if((current.front!==a.card.front||current.back!==a.card.back)&&details.evidence)details.evidenceStatus='needs_review';
      await tx.prepare("UPDATE cards SET front=?,back=?,details=?::jsonb,revision=revision+1 WHERE id=? AND deck_id=? AND owner=?").bind(a.card.front,a.card.back,JSON.stringify(details),a.card.id,a.deckId,owner).run();

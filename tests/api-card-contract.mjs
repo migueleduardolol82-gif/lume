@@ -13,6 +13,19 @@ test.after(()=>{if(initialDatabase===undefined)delete process.env.DATABASE_URL;e
 async function post(body,origin='http://localhost'){return POST(new Request('http://localhost/api/lume',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));}
 const falseCard={id:'tf',front:'Afirmação sintética',back:'Falso',revision:2,details:{origin:'Fonte sintética',template:{type:'true_false',correct:false}}};
 
+const imageCard={id:'image',front:'Identifique a estrutura',back:'Estrutura sintética',revision:2,details:{template:{type:'image',fileId:'image-file',alt:'Diagrama sintético'}}};
+const imageFile={id:'image-file',owner:'synthetic-owner',deck_id:'deck',type:'image/png',status:'ready'};
+for(const file of [null,{...imageFile,owner:'other-owner'},{...imageFile,deck_id:'other-deck'},{...imageFile,status:'uploading'},{...imageFile,type:'application/pdf'}])test('REG-IMAGE-OWNER-001: legacy image edit rejects unavailable or invalid image '+JSON.stringify(file),async()=>{
+ reset(imageCard);fixture.file=file;
+ const result=await post({action:'editCard',deckId:'deck',revision:2,card:{id:imageCard.id,front:imageCard.front,back:imageCard.back}});
+ assert.equal(result.status,400);assert.equal(fixture.writes.length,0);
+});
+test('legacy image edit preserves the valid owned image and card metadata',async()=>{
+ reset(imageCard);fixture.file=imageFile;
+ const result=await post({action:'editCard',deckId:'deck',revision:2,card:{id:imageCard.id,front:'Pergunta editada',back:imageCard.back}});
+ assert.equal(result.status,200);assert.deepEqual(JSON.parse(fixture.writes[0].values[2]),imageCard.details);
+});
+
 test('REG-TF-EDIT-002: metadata omitted in legacy edit cannot contradict the stored true/false key',async()=>{
  reset(falseCard);
  const result=await post({action:'editCard',deckId:'deck',revision:2,card:{id:'tf',front:falseCard.front,back:'Verdadeiro'}});

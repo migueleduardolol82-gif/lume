@@ -13,9 +13,14 @@ test('content backup restores provenance, evidence, hint, tags and alternatives 
  assert.notEqual(result.cards[0].id,'card-old');assert.equal(result.cards[0].deck_id,result.decks[0].id);
 });
 
-test('release restore cannot import an unfinished card type through backup',()=>{
+test('REG-IMAGE-BACKUP-001: content-only backup rejects an image reference with an actionable explanation',()=>{
  const input=fixture();Object.assign(input.decks[0].cards[0].details,{template:{type:'image',fileId:'unvalidated-file',alt:'Descrição'}});
- assert.throws(()=>restore(input),/preparação/);
+ assert.throws(()=>restore(input),/backup JSON não inclui os arquivos de imagem/);
+});
+
+test('image backup rejection happens before assigning any restored identifiers',()=>{
+ const input=fixture();Object.assign(input.decks[0].cards[0].details,{template:{type:'image',fileId:'foreign-file',alt:'Descrição'}});let ids=0;
+ assert.throws(()=>prepareRestore(input,()=>String(++ids)),/arquivos de imagem/);assert.equal(ids,0);
 });
 
 test('content backup restores material text, timestamps and revision history with remapped IDs',()=>{

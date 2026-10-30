@@ -26,7 +26,10 @@ export async function POST(request:Request){try{
    const inserted=await tx.prepare("INSERT INTO material_files(id,owner,deck_id,name,type,bytes,status,created) VALUES (?,?,?,?,?,?,'uploading',?) ON CONFLICT DO NOTHING").bind(a.id,owner,a.deckId,a.name,a.type,a.bytes,Date.now()).run();if(!inserted.meta.changes)throw new AppError('Identificador indisponível.',409);return {file:{id:a.id,status:'uploading'}};
   }
   if(!file)throw new AppError('Arquivo não encontrado.',404);
-  if(a.action==='delete'){await tx.prepare('DELETE FROM material_files WHERE id=? AND owner=?').bind(a.id,owner).run();return {deleted:true};}
+  if(a.action==='delete'){
+   if(await tx.prepare("SELECT id FROM cards WHERE owner=? AND details->'template'->>'type'='image' AND details->'template'->>'fileId'=? LIMIT 1").bind(owner,a.id).first())throw new AppError('Esta imagem está em uso por um cartão. Edite ou remova o cartão antes de excluir o arquivo.',409);
+   await tx.prepare('DELETE FROM material_files WHERE id=? AND owner=?').bind(a.id,owner).run();return {deleted:true};
+  }
   if(file.status==='ready')return {file};
   const chunks=await tx.prepare('SELECT part,bytes,data FROM material_file_chunks WHERE file_id=? ORDER BY part').bind(a.id).all<{part:number;bytes:number;data:Buffer}>();
   if(chunks.results.length!==Math.ceil(file.bytes/FILE_LIMITS.chunk)||chunks.results.some((part,index)=>part.part!==index)||chunks.results.reduce((sum,part)=>sum+part.bytes,0)!==file.bytes)throw new AppError('O envio está incompleto. Envie novamente as partes que faltam.',409);
@@ -49,8 +52,10 @@ export async function PUT(request:Request){try{
  }catch(error){return fail(error);}}
 export async function GET(request:Request){try{
  const owner=await user(),url=new URL(request.url),file=await db.prepare("SELECT * FROM material_files WHERE id=? AND owner=? AND status='ready'").bind(url.searchParams.get('id'),owner).first<FileRow>();if(!file)throw new AppError('Arquivo não encontrado.',404);
+ const inline=url.searchParams.get('view')==='inline';
+ if(inline&&!['image/png','image/jpeg','image/webp'].includes(file.type))throw new AppError('Apenas imagens PNG, JPEG ou WebP podem ser exibidas no cartão.');
  let part=0;const count=Math.ceil(file.bytes/FILE_LIMITS.chunk);
  const stream=new ReadableStream<Uint8Array>({async pull(controller){try{if(part>=count){controller.close();return;}const row=await db.prepare('SELECT c.data FROM material_file_chunks c JOIN material_files f ON f.id=c.file_id WHERE f.id=? AND f.owner=? AND c.part=?').bind(file.id,owner,part++).first<{data:Buffer}>();if(!row)throw Error('missing part');controller.enqueue(new Uint8Array(row.data));}catch(error){controller.error(error);}}});
- return new Response(stream,{headers:{'Content-Type':'application/octet-stream','Content-Length':String(file.bytes),'Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+ return new Response(stream,{headers:{'Content-Type':inline?file.type:'application/octet-stream','Content-Length':String(file.bytes),'Content-Disposition':`${inline?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  }catch(error){return fail(error);}}
 function fail(error:unknown){if(error instanceof AppError)return json({error:error.message},error.status);if(error instanceof SyntaxError)return json({error:'Dados inválidos.'},400);console.error('lume_material_file_failed');return json({error:'Não foi possível concluir o envio do arquivo.'},500);}
