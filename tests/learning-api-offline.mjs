@@ -45,8 +45,9 @@ test('indexed PDF enters actual Tutor retrieval with page labels; foreign files 
  const saved=await (await GET(new Request('http://localhost/api/lume/learning?id=invalid-chat'))).json();assert.equal(saved.session.payload.messages.length,0);
 });
 test('REG-CHAT-RETRY-001: repeating a confirmed question returns saved result without another model call',async()=>{
+ await pg.query("INSERT INTO materials(id,owner,deck_id,title,content,created,updated) VALUES ('retry-note','local-test','d','Circuito sintético','A corrente no circuito é -1 mA.',0,0)");
  await post({action:'create',id:'chat',deckId:'d',kind:'chat',title:'Conversa sintética'});
  const body={action:'message',id:'chat',eventId:'question',revision:0,question:'corrente circuito'};
- assert.equal((await post(body)).status,200);const calls=fixture.aiCalls;
+ const before=fixture.aiCalls;assert.equal((await post(body)).status,200);const calls=fixture.aiCalls;assert.equal(calls,before+1);
  assert.equal((await post(body)).status,200);assert.equal(fixture.aiCalls,calls);
 });
