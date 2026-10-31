@@ -7,4 +7,4 @@ const appRoot=fileURLToPath(new URL('.',import.meta.url));
 const dependencies=realpathSync(new URL('./node_modules',import.meta.url));
 let root=appRoot;
 while(path.relative(root,dependencies).startsWith('..')||path.isAbsolute(path.relative(root,dependencies)))root=path.dirname(root);
-export default {turbopack:{root}};
+export default {turbopack:{root},serverExternalPackages:['pdfjs-dist','@napi-rs/canvas'],outputFileTracingIncludes:{'/api/lume/learning':['./node_modules/pdfjs-dist/**','./node_modules/@napi-rs/**']}};

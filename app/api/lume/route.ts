@@ -7,6 +7,7 @@ import {readTicket} from "../../../lib/upload-ticket";
 import {releaseCardDetailsSchema,isCardAnswerConsistent} from '../../../lib/content';
 import {buildTutorContext,buildTutorPrompt} from '../../../lib/tutor-context';
 import {buildCardGenerationPrompt,assessGeneratedCards} from "../../../lib/card-quality";
+import {tutorMaterials} from '../../../lib/tutor-materials';
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 const id = z.string().min(1).max(100);
@@ -106,8 +107,8 @@ export async function POST(request: Request) {
     const assessed=assessGeneratedCards(valid.data.cards,{sourceText:a.text,hasAttachment,previous:a.previous});
     return json({cards:assessed.cards.map(c=>({...c,id:crypto.randomUUID()})),issues:assessed.issues,insufficient:valid.data.cards.length===0});
    }else if(a.action==="tutor"){
-    const [cs,notes,history]=await Promise.all([db.prepare("SELECT id,front,back,details FROM cards WHERE deck_id=? AND owner=? ORDER BY id").bind(a.deckId,owner).all<{id:string;front:string;back:string;details:{evidence?:string;origin?:string;tags?:string[]}}>(),db.prepare("SELECT id,title,content,revision FROM materials WHERE deck_id=? AND owner=? ORDER BY updated DESC").bind(a.deckId,owner).all<{id:string;title:string;content:string;revision:number}>(),db.prepare("SELECT role,content FROM messages WHERE deck_id=? AND owner=? ORDER BY created DESC LIMIT 8").bind(a.deckId,owner).all<{role:string;content:string}>()]);
-    const context=buildTutorContext({question:a.question,deckTitle:deck.title,source:deck.source,notes:notes.results,cards:cs.results,history:[...history.results].reverse()});
+    const [cs,notes,history]=await Promise.all([db.prepare("SELECT id,front,back,details FROM cards WHERE deck_id=? AND owner=? ORDER BY id").bind(a.deckId,owner).all<{id:string;front:string;back:string;details:{evidence?:string;origin?:string;tags?:string[]}}>(),tutorMaterials(db,owner,a.deckId),db.prepare("SELECT role,content FROM messages WHERE deck_id=? AND owner=? ORDER BY created DESC LIMIT 8").bind(a.deckId,owner).all<{role:string;content:string}>()]);
+    const context=buildTutorContext({question:a.question,deckTitle:deck.title,source:deck.source,notes,cards:cs.results,history:[...history.results].reverse()});
     let answer="Não encontrei trechos pertinentes nos materiais deste baralho para responder com segurança. Acrescente uma nota ou reformule a pergunta.",references= context.slice(0,0);
     if(context.length){
      const text=await ai([{type:"input_text",text:buildTutorPrompt(a.question,context,history.results.reverse())}],{type:"json_schema",name:"tutor_answer",strict:true,schema:{type:"object",properties:{answer:{type:"string"},citations:{type:"array",maxItems:12,items:{type:"string",enum:context.map(item=>item.id)}}},required:["answer","citations"],additionalProperties:false}});

@@ -30,11 +30,11 @@ try{
   console.log(`Testes offline: ${files.length} arquivos. Sem API real, banco ou rede.`);
   await run(['--experimental-transform-types','--test',...files],{offline:true});
   await run(['scripts/compile-ui-tests.mjs']);
-  await run(['--test','tests/workspace-ui.mjs','tests/material-library-ui.mjs','tests/api-card-contract.mjs'],{offline:true});
+  await run(['--test','tests/workspace-ui.mjs','tests/material-library-ui.mjs','tests/api-card-contract.mjs','tests/search-regression-ui.mjs','tests/learning-ui.mjs','tests/learning-api-offline.mjs'],{offline:true});
   if(mode==='regression')await run(['node_modules/typescript/bin/tsc','--noEmit'],{offline:true});
  }else{
   await localIdentity();
-  const files=mode==='integration'?['reliability-api.mjs','deck-edit-api.mjs','backup-api.mjs','content-import-api.mjs','subdecks-api.mjs','content-api.mjs','files-api.mjs','true-false-api.mjs','cloze-api.mjs','multi-select-api.mjs','order-api.mjs','match-api.mjs']:mode==='quality-ai'?['quality-live-ai.mjs','tutor-live-ai.mjs']:['api.mjs','large-pdf-api.mjs'];
+  const files=mode==='integration'?['reliability-api.mjs','deck-edit-api.mjs','backup-api.mjs','content-import-api.mjs','subdecks-api.mjs','content-api.mjs','files-api.mjs','true-false-api.mjs','cloze-api.mjs','multi-select-api.mjs','order-api.mjs','match-api.mjs','learning-api.mjs']:mode==='quality-ai'?['quality-live-ai.mjs','tutor-live-ai.mjs']:['api.mjs','large-pdf-api.mjs'];
   console.log(mode==='live-ai'?'Testes explícitos com IA real: podem consumir créditos e enviar PDF sintético de 50 MB.':mode==='quality-ai'?'Avaliação explícita de qualidade com IA real: duas fontes sintéticas; pode consumir créditos.':'Integração local: dados temporários identificados, sem geração de IA.');
   for(const file of files){await localIdentity();await run(['--experimental-transform-types','tests/'+file]);}
  }

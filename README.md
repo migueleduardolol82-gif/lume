@@ -2,6 +2,14 @@
 
 Plataforma de estudo para PC e iPhone, com cartões, quiz, materiais e Tutor.
 
+## Incremento: aulas, materiais do Tutor e histórico
+
+Esta branch acrescenta aulas guiadas de leitura, resposta e autoavaliação, com snapshots dos cartões e retomada salva; conversas independentes com histórico pesquisável; e preparação de PDFs armazenados para referências do Tutor por página. O conteúdo das aulas vem dos cartões: não é uma aula nova gerada por IA e a conclusão não certifica domínio. Conversas anteriores permanecem na aba Tutor.
+
+Aplicar a migração `005-learning.sql` antes de ativar a versão. Aulas e novas conversas entram no backup JSON; os originais de PDF continuam separados. Digitalizações sem camada de texto precisam de transcrição. A preparação aceita PDFs de até 30 MB/300 páginas/um milhão de caracteres; o armazenamento mantém seus limites anteriores.
+
+`npm run test:focus -- tests/learning-ui.mjs --name REG-HISTORY-RACE-001` executa apenas a regressão escolhida durante a correção, sem rede ou credenciais. Antes de publicar, continuam obrigatórios a suíte completa, o build e a integração aplicável. Consulte [processo de testes](docs/TESTES-FOCADOS.md) e [bugs reproduzidos](docs/REGRESSOES.md). A validação com IA real é separada e explícita.
+
 Produção: https://lume-estudo.vercel.app/ (acesso protegido pela Vercel).
 
 ## Executar localmente
